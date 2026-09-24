@@ -1,0 +1,102 @@
+@startuml
+left to right direction
+
+skinparam packageStyle rectangle
+
+' ATORES
+
+actor "Usuário" as Usuario
+actor "Morador" as Morador
+actor "Administrador" as Admin
+actor "Prestador de Serviço" as Prestador
+
+' Generalização dos atores
+Morador --|> Usuario
+Admin --|> Usuario
+Prestador --|> Usuario
+
+
+rectangle "Sistema de Gestão de Manutenção" {
+
+    ' --- Autenticação ---
+    usecase "Realizar login" as UC01
+    usecase "Recuperar senha" as UC02
+
+    ' --- Usuários ---
+    usecase "Cadastrar usuário" as UC03
+    usecase "Gerenciar usuários" as UC04
+
+    ' --- Solicitações ---
+    usecase "Criar solicitação" as UC05
+    usecase "Consultar solicitações" as UC06
+    usecase "Definir prioridade" as UC07
+    usecase "Atribuir responsável" as UC08
+
+    ' --- Execução ---
+    usecase "Consultar serviço\natribuído" as UC09
+    usecase "Atualizar status" as UC10
+    usecase "Adicionar observação" as UC11
+    usecase "Registrar conclusão" as UC12
+    usecase "Encerrar solicitação" as UC13
+
+    ' --- Acompanhamento e histórico ---
+    usecase "Acompanhar solicitação" as UC14
+    usecase "Consultar histórico" as UC15
+    usecase "Consultar histórico\nde alterações" as UC16
+
+    ' --- Avaliação ---
+    usecase "Avaliar serviço" as UC17
+
+    ' --- Administração ---
+    usecase "Visualizar dashboard" as UC18
+}
+
+' ASSOCIAÇÕES
+
+Usuario --> UC01
+Usuario --> UC02
+
+Morador --> UC05
+Morador --> UC06
+Morador --> UC14
+Morador --> UC15
+Morador --> UC17
+
+Admin --> UC03
+Admin --> UC04
+Admin --> UC06
+Admin --> UC07
+Admin --> UC08
+Admin --> UC11
+Admin --> UC15
+Admin --> UC16
+Admin --> UC18
+
+Prestador --> UC06
+Prestador --> UC09
+Prestador --> UC10
+Prestador --> UC11
+Prestador --> UC12
+Prestador --> UC13
+
+
+' INCLUDE
+
+' Para registrar a conclusão, o status precisa ser atualizado
+UC12 ..> UC10 : <<include>>
+
+' Para encerrar, a solicitação precisa estar concluída
+UC13 ..> UC12 : <<include>>
+
+' O acompanhamento inclui a consulta das informações da solicitação
+UC14 ..> UC06 : <<include>>
+
+' EXTEND
+
+' A avaliação acontece opcionalmente após a conclusão
+UC17 ..> UC13 : <<extend>>
+
+' Recuperação de senha é uma alternativa opcional ao login
+UC02 ..> UC01 : <<extend>>
+
+@enduml
