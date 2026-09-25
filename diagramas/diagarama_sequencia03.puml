@@ -1,0 +1,31 @@
+@startuml
+
+actor PrestadorServico
+participant Sistema
+participant Solicitacao
+database "Banco de Dados" as BD
+
+PrestadorServico -> Sistema: login
+activate Sistema
+
+Sistema --> PrestadorServico: exibir serviços atribuídos
+PrestadorServico -> Sistema: selecionar solicitação
+Sistema --> PrestadorServico: exibir detalhes da solicitação
+
+PrestadorServico -> Sistema: informar novo status
+Sistema -> Solicitacao: atualizarStatus()
+activate Solicitacao
+
+Solicitacao -> BD: salvar novo status
+activate BD
+
+BD --> Solicitacao: confirmação do salvamento
+deactivate BD
+
+Solicitacao --> Sistema: status atualizado
+deactivate Solicitacao
+
+Sistema --> PrestadorServico: confirmar atualização
+deactivate Sistema
+
+@enduml

@@ -1,0 +1,37 @@
+@startuml
+
+actor Administrador
+participant Sistema
+participant Solicitacao
+participant PrestadorServico
+database "Banco de Dados" as BD
+
+Administrador -> Sistema: login do administrador
+activate Sistema
+
+Sistema --> Administrador: exibir solicitações
+Administrador -> Sistema: selecionar solicitação
+Sistema --> Administrador: exibir prestadores disponíveis
+Administrador -> Sistema: selecionar prestador
+Sistema -> Solicitacao: atribuir responsável
+activate Solicitacao
+
+Solicitacao -> PrestadorServico: associar prestador
+activate PrestadorServico
+
+PrestadorServico --> Solicitacao: prestador associado
+deactivate PrestadorServico
+
+Solicitacao --> Sistema: atribuição realizada
+deactivate Solicitacao
+
+Sistema -> BD: salvar atribuição
+activate BD
+
+BD --> Sistema: confirmação do salvamento
+deactivate BD
+
+Sistema --> Administrador: confirmar atribuição do prestador
+deactivate Sistema
+
+@enduml

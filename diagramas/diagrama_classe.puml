@@ -1,0 +1,56 @@
+@startuml
+
+class Usuario {
+    - id: int
+    - nome: String
+    - email: String
+    - senha: String
+}
+
+class Morador {
+    + criarSolicitacao(): void
+    + acompanharSolicitacao(): void
+    + avaliarServico(): void
+}
+
+class Administrador {
+    + cadastrarUsuario(): void
+    + definirPrioridade(): void
+}
+
+class PrestadorServico {
+    + atualizarStatus(): void
+    + registrarConclusao(): void
+}
+
+class Solicitacao {
+    - id: int
+    - descricao: String
+    - categoria: String
+    - localizacao: String
+    - prioridade: String
+    - status: String
+    - dataAbertura: Date
+    - dataConclusao: Date
+
+    + atribuirResponsavel(): void
+    + alterarStatus(): void
+    + encerrar(): void
+}
+
+class Avaliacao {
+    - nota: int
+    - comentario: String
+}
+
+Usuario <|-- Morador
+Usuario <|-- Administrador
+Usuario <|-- PrestadorServico
+
+Morador "1" -- "0..*" Solicitacao : cria
+Administrador "1" -- "0..*" Solicitacao : gerencia
+PrestadorServico "1" -- "0..*" Solicitacao : executa
+Solicitacao "1" -- "0..1" Avaliacao : possui
+Morador "1" -- "0..*" Avaliacao : faz
+
+@enduml

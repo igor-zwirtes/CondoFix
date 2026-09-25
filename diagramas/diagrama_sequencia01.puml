@@ -1,0 +1,28 @@
+@startuml
+
+actor Morador
+participant Sistema
+participant Solicitacao
+database "Banco de Dados" as BD
+
+Morador -> Sistema: solicitar criação de solicitação
+activate Sistema
+
+Sistema --> Morador: exibir formulário
+Morador -> Sistema: informar dados
+Sistema -> Solicitacao: criar solicitação
+activate Solicitacao
+
+Solicitacao --> Sistema: solicitação criada
+deactivate Solicitacao
+
+Sistema -> BD: salvar solicitação
+activate BD
+
+BD --> Sistema: confirmação do salvamento
+deactivate BD
+
+Sistema --> Morador: confirmar criação da solicitação
+deactivate Sistema
+
+@enduml
