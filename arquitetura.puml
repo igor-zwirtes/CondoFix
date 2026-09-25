@@ -1,0 +1,54 @@
+@startuml
+title Arquitetura do Sistema de Gestão de Manutenção
+
+skinparam componentStyle rectangle
+
+actor "Morador" as Morador
+actor "Administrador" as Admin
+actor "Prestador de Serviço" as Prestador
+
+package "Cliente" {
+    component "Interface Web" as Frontend
+}
+
+package "Servidor" {
+
+    component "API / Controladores" as API
+
+    package "Camada de Negócio" {
+        component "Autenticação e\nAutorização" as Auth
+        component "Gestão de Usuários" as Users
+        component "Gestão de Solicitações" as Requests
+        component "Acompanhamento\ne Histórico" as History
+        component "Conclusão e\nAvaliação" as Evaluation
+        component "Dashboard" as Dashboard
+    }
+
+    component "Camada de Persistência" as Persistence
+}
+
+database "Banco de Dados" as DB
+
+Morador --> Frontend
+Admin --> Frontend
+Prestador --> Frontend
+
+Frontend --> API : HTTP / JSON
+
+API --> Auth
+API --> Users
+API --> Requests
+API --> History
+API --> Evaluation
+API --> Dashboard
+
+Auth --> Persistence
+Users --> Persistence
+Requests --> Persistence
+History --> Persistence
+Evaluation --> Persistence
+Dashboard --> Persistence
+
+Persistence --> DB
+
+@enduml
