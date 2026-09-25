@@ -1,0 +1,90 @@
+@startuml
+title Fluxo de manutenção de uma solicitação
+
+|Morador|
+start
+
+:Realizar login;
+:Criar solicitação;
+
+:Informar descrição,
+categoria e localização;
+
+if (Dados válidos?) then (Sim)
+    |Sistema|
+    :Registrar solicitação;
+    :Definir status = "Aberta";
+else (Não)
+    |Sistema|
+    :Informar dados inválidos;
+
+    |Morador|
+    :Corrigir dados;
+
+    |Sistema|
+    :Registrar solicitação;
+    :Definir status = "Aberta";
+endif
+
+
+|Administrador|
+
+:Consultar solicitação;
+:Definir prioridade;
+:Atribuir Prestador de Serviço;
+
+
+|Sistema|
+
+:Registrar responsável;
+:Registrar alteração no histórico;
+
+
+|Prestador de Serviço|
+
+:Consultar serviço atribuído;
+:Iniciar atendimento;
+:Atualizar status;
+
+
+while (Serviço concluído?) is (Não)
+
+    :Executar manutenção;
+
+    if (Adicionar observação?) then (Sim)
+        :Adicionar observação;
+    endif
+
+    :Atualizar status;
+
+endwhile (Sim)
+
+
+:Registrar conclusão;
+:Informar solução realizada;
+
+
+|Sistema|
+
+:Registrar solução;
+:Registrar data de conclusão;
+:Alterar status para "Concluída";
+:Registrar alteração no histórico;
+
+:Encerrar solicitação;
+
+
+|Morador|
+
+if (Avaliar serviço?) then (Sim)
+    :Informar nota;
+    :Adicionar comentário;
+
+    |Sistema|
+    :Registrar avaliação;
+else (Não)
+endif
+
+stop
+
+@enduml
