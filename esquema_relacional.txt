@@ -1,0 +1,80 @@
+Categorias_solicitacao(
+    id_categoria PK,
+    tipo_categoria UNIQUE
+)
+
+Prioridades_solicitacao(
+    id_prioridade PK,
+    tipo_prioridade UNIQUE
+)
+
+Status_solicitacao(
+    id_status PK,
+    tipo_status UNIQUE
+)
+
+Tipos_alteracao(
+    id_tipo PK,
+    tipo UNIQUE
+)
+
+Usuarios(
+    id_usuario PK,
+    nome NOT NULL,
+    telefone,
+    email UNIQUE NOT NULL,
+    senha_hash NOT NULL
+)
+
+Apartamentos(
+    id_apartamento PK,
+    proprietario_id FK NOT NULL,
+    numero NOT NULL,
+    andar NOT NULL,
+    predio NOT NULL
+)
+
+Administradores(
+    usuario_id PK/FK,
+    cpf UNIQUE
+)
+
+Moradores(
+    usuario_id PK/FK,
+    apartamento_id FK NOT NULL
+)
+
+Prestador_de_servico(
+    usuario_id PK/FK,
+    cpf UNIQUE,
+    cnpj UNIQUE,
+    empresa NOT NULL
+)
+
+Solicitacoes(
+    id_solicitacao PK,
+    usuario_id FK NOT NULL,
+    apartamento_id FK NOT NULL,
+    prestador_id FK,
+    descricao NOT NULL,
+    categoria FK NOT NULL,
+    prioridade FK NOT NULL,
+    status FK NOT NULL,
+    data_abertura NOT NULL,
+    data_conclusao
+)
+
+Alteracoes_solicitacoes(
+    id_alteracao PK,
+    solicitacao_id FK NOT NULL,
+    usuario_id FK NOT NULL,
+    tipo_alteracao FK NOT NULL,
+    descricao,
+    data_hora NOT NULL
+)
+
+Avaliacoes(
+    solicitacao_id PK/FK,
+    nota NOT NULL,
+    comentario
+)
