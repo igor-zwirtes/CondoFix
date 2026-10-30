@@ -102,9 +102,9 @@ CREATE TABLE "PRESTADORES_SERVICO" (
     CONSTRAINT FK_PRESTADORES_EMPRESAS
         FOREIGN KEY (pvdcmp)
         REFERENCES "EMPRESAS" (cmpid)
-        ON DELETE CASCADE,
+        ON DELETE SET NULL,
 
-    CONSTRAINT CK_PRESTADORES_DOCUMENTO UNIQUE (pvdcpf, pvdcmp)
+    CONSTRAINT UQ_PRESTADORES_DOCUMENTO UNIQUE (pvdcpf)
 );
 
 -- =====================================================
