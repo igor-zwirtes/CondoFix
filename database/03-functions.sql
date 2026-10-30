@@ -198,3 +198,31 @@ BEGIN
     RETURN NULL;
 END;
 $$;
+
+
+-- Função para atualizar a data de fechamento da solicitação
+CREATE OR REPLACE FUNCTION FN_ATUALIZAR_DATA_FECHAMENTO()
+RETURNS TRIGGER AS $$
+DECLARE
+    v_status TEXT;
+BEGIN
+    SELECT stsnom
+    INTO v_status
+    FROM "STATUS_SOLICITACAO"
+    WHERE stsid = NEW.stsid;
+
+    IF v_status IN ('Finalizada', 'Cancelada') THEN
+        -- Registra a data de fechamento apenas na transição
+        IF OLD.stsid IS DISTINCT FROM NEW.stsid THEN
+            NEW.socls := CURRENT_TIMESTAMP;
+        ELSIF OLD.socls IS NULL THEN
+            NEW.socls := CURRENT_TIMESTAMP;
+        END IF;
+    ELSE
+        -- Solicitação reaberta: remove a data de fechamento
+        NEW.socls := NULL;
+    END IF;
+
+    RETURN NEW;
+END;
+$$ LANGUAGE plpgsql;
