@@ -107,6 +107,15 @@ CREATE TABLE "PRESTADORES_SERVICO" (
     CONSTRAINT UQ_PRESTADORES_DOCUMENTO UNIQUE (pvdcpf)
 );
 
+CREATE INDEX IDX_USUARIO_ROLES_ROLE
+    ON "USUARIO_ROLES" (roleid);
+
+CREATE INDEX IDX_MORADORES_APARTAMENTO
+    ON "MORADORES" (aptid);
+
+CREATE INDEX IDX_PRESTADORES_EMPRESA
+    ON "PRESTADORES_SERVICO" (pvdcmp);
+
 -- =====================================================
 -- 3. TABELAS DE DOMINIO
 -- =====================================================
