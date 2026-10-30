@@ -1,7 +1,4 @@
--- =====================================================
--- 1. FUNCAO PARA ATUALIZAR O STATUS
--- =====================================================
-
+-- Função para atualizar o status
 CREATE OR REPLACE FUNCTION ATUALIZAR_STATUS_SOLICITACAO(
     p_soid INTEGER,
     p_usrid INTEGER,
@@ -96,5 +93,108 @@ BEGIN
         ),
         CURRENT_TIMESTAMP
     );
+END;
+$$;
+
+
+-- Função para validar a consistência entre papéis e perfis de usuário
+CREATE OR REPLACE FUNCTION FN_VALIDAR_CONSISTENCIA_USUARIO(
+    p_usrid INTEGER
+)
+RETURNS VOID
+LANGUAGE plpgsql
+AS $$
+DECLARE
+    v_tem_papel BOOLEAN;
+    v_tem_perfil BOOLEAN;
+BEGIN
+    -- Verifica se o usuário ainda existe.
+    IF NOT EXISTS (
+        SELECT 1
+        FROM "USUARIOS"
+        WHERE usrid = p_usrid
+    ) THEN
+        RETURN;
+    END IF;
+
+    -- =========================================
+    -- PAPEL USUARIO <-> PERFIL MORADORES
+    -- =========================================
+
+    SELECT EXISTS (
+        SELECT 1
+        FROM "USUARIO_ROLES" ur
+        JOIN "ROLES" r ON r.roleid = ur.roleid
+        WHERE ur.usrid = p_usrid
+          AND r.rolenam = 'USUARIO'
+    )
+    INTO v_tem_papel;
+
+    SELECT EXISTS (
+        SELECT 1
+        FROM "MORADORES"
+        WHERE usrid = p_usrid
+    )
+    INTO v_tem_perfil;
+
+    IF v_tem_papel IS DISTINCT FROM v_tem_perfil THEN
+        RAISE EXCEPTION
+            'Inconsistencia no usuario %: o papel USUARIO e o perfil MORADORES devem existir juntos.',
+            p_usrid;
+    END IF;
+
+    -- =========================================
+    -- PAPEL PRESTADOR_SERVICO <-> PERFIL PRESTADORES
+    -- =========================================
+
+    SELECT EXISTS (
+        SELECT 1
+        FROM "USUARIO_ROLES" ur
+        JOIN "ROLES" r ON r.roleid = ur.roleid
+        WHERE ur.usrid = p_usrid
+          AND r.rolenam = 'PRESTADOR_SERVICO'
+    )
+    INTO v_tem_papel;
+
+    SELECT EXISTS (
+        SELECT 1
+        FROM "PRESTADORES_SERVICO"
+        WHERE usrid = p_usrid
+    )
+    INTO v_tem_perfil;
+
+    IF v_tem_papel IS DISTINCT FROM v_tem_perfil THEN
+        RAISE EXCEPTION
+            'Inconsistencia no usuario %: o papel PRESTADOR_SERVICO e o perfil PRESTADORES_SERVICO devem existir juntos.',
+            p_usrid;
+    END IF;
+
+END;
+$$;
+
+
+-- Função para validar a consistência entre papéis e perfis de usuário
+CREATE OR REPLACE FUNCTION FN_TRG_VALIDAR_USUARIO()
+RETURNS TRIGGER
+LANGUAGE plpgsql
+AS $$
+DECLARE
+    v_usrid INTEGER;
+BEGIN
+    IF TG_OP = 'DELETE' THEN
+        v_usrid := OLD.usrid;
+    ELSE
+        v_usrid := NEW.usrid;
+    END IF;
+
+    PERFORM FN_VALIDAR_CONSISTENCIA_USUARIO(v_usrid);
+
+    -- Se o identificador foi alterado, verifica o usuário anterior.
+    IF TG_OP = 'UPDATE'
+       AND OLD.usrid IS DISTINCT FROM NEW.usrid THEN
+        PERFORM FN_VALIDAR_CONSISTENCIA_USUARIO(OLD.usrid);
+    END IF;
+
+    RETURN NULL;
 END;
 $$;
