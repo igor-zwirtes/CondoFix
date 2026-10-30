@@ -226,3 +226,132 @@ BEGIN
     RETURN NEW;
 END;
 $$ LANGUAGE plpgsql;
+
+
+-- Função para validar CPF
+CREATE OR REPLACE FUNCTION FN_VALIDAR_CPF(p_cpf CHAR(11))
+RETURNS BOOLEAN AS $$
+DECLARE
+    v_cpf TEXT;
+    v_soma INTEGER := 0;
+    v_resto INTEGER;
+    v_digito INTEGER;
+    i INTEGER;
+BEGIN
+    IF p_cpf IS NULL THEN
+        RETURN FALSE;
+    END IF;
+
+    v_cpf := REGEXP_REPLACE(p_cpf, '[^0-9]', '', 'g');
+
+    IF LENGTH(v_cpf) <> 11 THEN
+        RETURN FALSE;
+    END IF;
+
+    -- Rejeita CPFs com todos os dígitos iguais
+    IF v_cpf ~ '^([0-9])\1{10}$' THEN
+        RETURN FALSE;
+    END IF;
+
+    -- Primeiro dígito verificador
+    FOR i IN 1..9 LOOP
+        v_soma := v_soma +
+            CAST(SUBSTRING(v_cpf FROM i FOR 1) AS INTEGER) * (11 - i);
+    END LOOP;
+
+    v_resto := (v_soma * 10) % 11;
+
+    IF v_resto = 10 THEN
+        v_resto := 0;
+    END IF;
+
+    IF v_resto <> CAST(SUBSTRING(v_cpf FROM 10 FOR 1) AS INTEGER) THEN
+        RETURN FALSE;
+    END IF;
+
+    -- Segundo dígito verificador
+    v_soma := 0;
+
+    FOR i IN 1..10 LOOP
+        v_soma := v_soma +
+            CAST(SUBSTRING(v_cpf FROM i FOR 1) AS INTEGER) * (12 - i);
+    END LOOP;
+
+    v_resto := (v_soma * 10) % 11;
+
+    IF v_resto = 10 THEN
+        v_resto := 0;
+    END IF;
+
+    RETURN v_resto = CAST(SUBSTRING(v_cpf FROM 11 FOR 1) AS INTEGER);
+END;
+$$ LANGUAGE plpgsql IMMUTABLE;
+
+
+-- Função para validar CNPJ
+CREATE OR REPLACE FUNCTION FN_VALIDAR_CNPJ(p_cnpj CHAR(14))
+RETURNS BOOLEAN AS $$
+DECLARE
+    v_cnpj TEXT;
+    v_soma INTEGER;
+    v_resto INTEGER;
+    v_digito INTEGER;
+    v_pesos INTEGER[];
+    i INTEGER;
+BEGIN
+    IF p_cnpj IS NULL THEN
+        RETURN FALSE;
+    END IF;
+
+    v_cnpj := REGEXP_REPLACE(p_cnpj, '[^0-9]', '', 'g');
+
+    IF LENGTH(v_cnpj) <> 14 THEN
+        RETURN FALSE;
+    END IF;
+
+    -- Rejeita CNPJs com todos os dígitos iguais
+    IF v_cnpj ~ '^([0-9])\1{13}$' THEN
+        RETURN FALSE;
+    END IF;
+
+    -- Primeiro dígito verificador
+    v_pesos := ARRAY[5,4,3,2,9,8,7,6,5,4,3,2];
+    v_soma := 0;
+
+    FOR i IN 1..12 LOOP
+        v_soma := v_soma +
+            CAST(SUBSTRING(v_cnpj FROM i FOR 1) AS INTEGER) * v_pesos[i];
+    END LOOP;
+
+    v_resto := v_soma % 11;
+
+    IF v_resto < 2 THEN
+        v_digito := 0;
+    ELSE
+        v_digito := 11 - v_resto;
+    END IF;
+
+    IF v_digito <> CAST(SUBSTRING(v_cnpj FROM 13 FOR 1) AS INTEGER) THEN
+        RETURN FALSE;
+    END IF;
+
+    -- Segundo dígito verificador
+    v_pesos := ARRAY[6,5,4,3,2,9,8,7,6,5,4,3,2];
+    v_soma := 0;
+
+    FOR i IN 1..13 LOOP
+        v_soma := v_soma +
+            CAST(SUBSTRING(v_cnpj FROM i FOR 1) AS INTEGER) * v_pesos[i];
+    END LOOP;
+
+    v_resto := v_soma % 11;
+
+    IF v_resto < 2 THEN
+        v_digito := 0;
+    ELSE
+        v_digito := 11 - v_resto;
+    END IF;
+
+    RETURN v_digito = CAST(SUBSTRING(v_cnpj FROM 14 FOR 1) AS INTEGER);
+END;
+$$ LANGUAGE plpgsql IMMUTABLE;
