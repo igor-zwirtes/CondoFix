@@ -355,3 +355,25 @@ BEGIN
     RETURN v_digito = CAST(SUBSTRING(v_cnpj FROM 14 FOR 1) AS INTEGER);
 END;
 $$ LANGUAGE plpgsql IMMUTABLE;
+
+
+-- Função para validar avaliação de solicitação
+CREATE OR REPLACE FUNCTION FN_VALIDAR_AVALIACAO()
+RETURNS TRIGGER AS $$
+DECLARE
+    v_status TEXT;
+BEGIN
+    SELECT ss.stsnom
+    INTO v_status
+    FROM "SOLICITACOES" s
+    JOIN "STATUS_SOLICITACAO" ss ON ss.stsid = s.stsid
+    WHERE s.soid = NEW.soid;
+
+    IF v_status IS DISTINCT FROM 'Finalizada' THEN
+        RAISE EXCEPTION
+            'Apenas solicitações finalizadas podem ser avaliadas.';
+    END IF;
+
+    RETURN NEW;
+END;
+$$ LANGUAGE plpgsql;
