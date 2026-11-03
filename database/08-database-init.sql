@@ -1,3 +1,9 @@
+
+BEGIN;
+
+-- Adia os constraint triggers adiáveis até o fim da transação.
+SET CONSTRAINTS ALL DEFERRED;
+
 -- =====================================================
 -- 1. APARTAMENTOS
 -- =====================================================
@@ -15,7 +21,6 @@ ON CONFLICT (aptnum, aptflr, aptblk) DO NOTHING;
 
 -- =====================================================
 -- 2. EMPRESAS
--- CNPJs fictícios e válidos para testes de formato.
 -- =====================================================
 
 INSERT INTO "EMPRESAS" (cmpnam, cmpcnpj)
@@ -28,7 +33,7 @@ ON CONFLICT (cmpcnpj) DO NOTHING;
 
 -- =====================================================
 -- 3. USUARIOS
--- Senhas de teste: trocar na aplicação em produção.
+-- Senhas em texto puro apenas para ambiente local de teste.
 -- =====================================================
 
 INSERT INTO "USUARIOS" (usrnam, usrphn, usreml, usrpsw)
@@ -54,48 +59,8 @@ ON CONFLICT (usreml) DO NOTHING;
 
 
 -- =====================================================
--- 4. PERFIS DE MORADORES
--- =====================================================
-
-INSERT INTO "MORADORES" (usrid, aptid)
-SELECT u.usrid, a.aptid
-FROM (
-    VALUES
-        ('morador@condofix.local', '101', '1', 'A'),
-        ('maria@condofix.local', '102', '1', 'A')
-) AS dados(email, numero, andar, bloco)
-JOIN "USUARIOS" u ON u.usreml = dados.email
-JOIN "APARTAMENTOS" a
-    ON a.aptnum = dados.numero
-    AND a.aptflr = dados.andar
-    AND a.aptblk = dados.bloco
-ON CONFLICT (usrid) DO NOTHING;
-
-
--- =====================================================
--- 5. PERFIS DE PRESTADORES
--- CPF fictício e válido para testes de formato.
--- =====================================================
-
-INSERT INTO "PRESTADORES_SERVICO" (usrid, pvdcpf, pvdcmp)
-SELECT
-    u.usrid,
-    dados.cpf,
-    e.cmpid
-FROM (
-    VALUES
-        ('prestador@condofix.local', '52998224725',
-         'EletroSol Manutencoes'),
-        ('ana.prestador@condofix.local', '11144477735',
-         'HidroTech Servicos')
-) AS dados(email, cpf, empresa)
-JOIN "USUARIOS" u ON u.usreml = dados.email
-JOIN "EMPRESAS" e ON e.cmpnam = dados.empresa
-ON CONFLICT (usrid) DO NOTHING;
-
-
--- =====================================================
--- 6. ASSOCIACAO DE PAPEIS
+-- 4. ASSOCIACAO DE PAPEIS
+-- Os papéis são associados antes da criação dos perfis.
 -- =====================================================
 
 INSERT INTO "USUARIO_ROLES" (usrid, roleid)
@@ -109,9 +74,57 @@ FROM (
         ('prestador@condofix.local', 'PRESTADOR_SERVICO'),
         ('ana.prestador@condofix.local', 'PRESTADOR_SERVICO')
 ) AS dados(email, papel)
-JOIN "USUARIOS" u ON u.usreml = dados.email
-JOIN "ROLES" r ON r.rolenam = dados.papel
+JOIN "USUARIOS" u
+    ON u.usreml = dados.email
+JOIN "ROLES" r
+    ON r.rolenam = dados.papel
 ON CONFLICT (usrid, roleid) DO NOTHING;
+
+
+-- =====================================================
+-- 5. PERFIS DE MORADORES
+-- =====================================================
+
+INSERT INTO "MORADORES" (usrid, aptid)
+SELECT u.usrid, a.aptid
+FROM (
+    VALUES
+        ('morador@condofix.local', '101', '1', 'A'),
+        ('maria@condofix.local', '102', '1', 'A')
+) AS dados(email, numero, andar, bloco)
+JOIN "USUARIOS" u
+    ON u.usreml = dados.email
+JOIN "APARTAMENTOS" a
+    ON a.aptnum = dados.numero
+   AND a.aptflr = dados.andar
+   AND a.aptblk = dados.bloco
+ON CONFLICT (usrid) DO NOTHING;
+
+
+-- =====================================================
+-- 6. PERFIS DE PRESTADORES
+-- =====================================================
+
+INSERT INTO "PRESTADORES_SERVICO" (usrid, pvdcpf, pvdcmp)
+SELECT
+    u.usrid,
+    dados.cpf,
+    e.cmpid
+FROM (
+    VALUES
+        ('prestador@condofix.local',
+         '52998224725',
+         'EletroSol Manutencoes'),
+
+        ('ana.prestador@condofix.local',
+         '11144477735',
+         'HidroTech Servicos')
+) AS dados(email, cpf, empresa)
+JOIN "USUARIOS" u
+    ON u.usreml = dados.email
+JOIN "EMPRESAS" e
+    ON e.cmpnam = dados.empresa
+ON CONFLICT (usrid) DO NOTHING;
 
 
 -- =====================================================
@@ -119,12 +132,13 @@ ON CONFLICT (usrid, roleid) DO NOTHING;
 -- =====================================================
 
 INSERT INTO "SOLICITACOES"
-    (usrid, sotit, aptid, pvdid, sodcp, catid, priid, stsid)
+    (usrid, sotit, aptid, pvdid, sodcp,
+     catid, priid, stsid)
 SELECT
     u.usrid,
     dados.titulo,
     a.aptid,
-    p.usrid,
+    ps.usrid,
     dados.descricao,
     c.catid,
     pr.priid,
@@ -165,31 +179,35 @@ FROM (
          NULL,
          'Torneira do banheiro apresenta vazamento.',
          'Hidraulica', 'Normal', 'Cancelada')
-) AS dados(email, titulo, numero, andar, bloco,
-           prestador_email, descricao, categoria,
-           prioridade, status)
-JOIN "USUARIOS" u ON u.usreml = dados.email
+) AS dados(
+    email, titulo, numero, andar, bloco,
+    prestador_email, descricao, categoria,
+    prioridade, status
+)
+JOIN "USUARIOS" u
+    ON u.usreml = dados.email
 JOIN "APARTAMENTOS" a
     ON a.aptnum = dados.numero
-    AND a.aptflr = dados.andar
-    AND a.aptblk = dados.bloco
-LEFT JOIN "USUARIOS" p ON p.usreml = dados.prestador_email
-LEFT JOIN "PRESTADORES_SERVICO" ps ON ps.usrid = p.usrid
-LEFT JOIN "CATEGORIAS_SOLICITACAO" c
+   AND a.aptflr = dados.andar
+   AND a.aptblk = dados.bloco
+LEFT JOIN "USUARIOS" up
+    ON up.usreml = dados.prestador_email
+LEFT JOIN "PRESTADORES_SERVICO" ps
+    ON ps.usrid = up.usrid
+JOIN "CATEGORIAS_SOLICITACAO" c
     ON c.catnom = dados.categoria
 JOIN "PRIORIDADES_SOLICITACAO" pr
     ON pr.prinom = dados.prioridade
 JOIN "STATUS_SOLICITACAO" st
     ON st.stsnom = dados.status
-LEFT JOIN "PRESTADORES_SERVICO" p
-    ON p.usrid = ps.usrid
-WHERE (dados.prestador_email IS NULL OR p.usrid IS NOT NULL)
-AND NOT EXISTS (
-    SELECT 1
-    FROM "SOLICITACOES" s
-    WHERE s.usrid = u.usrid
-      AND s.sotit = dados.titulo
-);
+WHERE
+    (dados.prestador_email IS NULL OR ps.usrid IS NOT NULL)
+    AND NOT EXISTS (
+        SELECT 1
+        FROM "SOLICITACOES" s
+        WHERE s.usrid = u.usrid
+          AND s.sotit = dados.titulo
+    );
 
 
 -- =====================================================
@@ -199,7 +217,7 @@ AND NOT EXISTS (
 INSERT INTO "ALTERACOES" (soid, usrid, typid, altdcp)
 SELECT
     s.soid,
-    u.usrid,
+    responsavel.usrid,
     t.typid,
     dados.descricao
 FROM (
@@ -227,20 +245,25 @@ FROM (
          'prestador@condofix.local',
          'Conclusao',
          'Reparo realizado com sucesso.')
-) AS dados(email_solicitante, titulo, email_responsavel,
-           tipo, descricao)
-JOIN "USUARIOS" u ON u.usreml = dados.email_responsavel
-JOIN "SOLICITACOES" s
-    ON s.sotit = dados.titulo
+) AS dados(
+    email_solicitante, titulo, email_responsavel,
+    tipo, descricao
+)
 JOIN "USUARIOS" solicitante
     ON solicitante.usreml = dados.email_solicitante
-    AND s.usrid = solicitante.usrid
-JOIN "TIPOS_ALTERACAO" t ON t.typnom = dados.tipo
+JOIN "SOLICITACOES" s
+    ON s.usrid = solicitante.usrid
+   AND s.sotit = dados.titulo
+JOIN "USUARIOS" responsavel
+    ON responsavel.usreml = dados.email_responsavel
+JOIN "TIPOS_ALTERACAO" t
+    ON t.typnom = dados.tipo
 WHERE NOT EXISTS (
     SELECT 1
     FROM "ALTERACOES" alt
     WHERE alt.soid = s.soid
-      AND alt.usrid = u.usrid
+      AND alt.usrid = responsavel.usrid
+      AND alt.typid = t.typid
       AND alt.altdcp = dados.descricao
 );
 
@@ -250,13 +273,19 @@ WHERE NOT EXISTS (
 -- =====================================================
 
 INSERT INTO "AVALIACOES" (soid, evascr, evanot)
-SELECT s.soid, 5, 'Servico realizado com qualidade.'
+SELECT
+    s.soid,
+    5,
+    'Servico realizado com qualidade.'
 FROM "SOLICITACOES" s
-JOIN "USUARIOS" u ON u.usrid = s.usrid
+JOIN "USUARIOS" u
+    ON u.usrid = s.usrid
+JOIN "STATUS_SOLICITACAO" st
+    ON st.stsid = s.stsid
 WHERE u.usreml = 'morador@condofix.local'
   AND s.sotit = 'Vazamento na pia'
-  AND NOT EXISTS (
-      SELECT 1
-      FROM "AVALIACOES" av
-      WHERE av.soid = s.soid
-  );
+  AND st.stsnom IN ('Concluida', 'Finalizada')
+ON CONFLICT (soid) DO NOTHING;
+
+
+COMMIT;
