@@ -43,6 +43,50 @@ CREATE TABLE "USUARIO_ROLES" (
         ON DELETE CASCADE
 );
 
+-- Módulos/grupos de abas da interface
+CREATE TABLE "FUNCOES" (
+    funid INTEGER GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+    funnom VARCHAR(100) NOT NULL UNIQUE,
+    fundcp TEXT
+);
+
+-- Módulos permitidos para cada role
+CREATE TABLE "ROLES_FUNCOES" (
+    roleid INTEGER NOT NULL,
+    funid INTEGER NOT NULL,
+
+    PRIMARY KEY (roleid, funid),
+
+    CONSTRAINT FK_ROLES_FUNCOES_ROLE
+        FOREIGN KEY (roleid)
+        REFERENCES "ROLES" (roleid)
+        ON DELETE CASCADE,
+
+    CONSTRAINT FK_ROLES_FUNCOES_FUNCAO
+        FOREIGN KEY (funid)
+        REFERENCES "FUNCOES" (funid)
+        ON DELETE CASCADE
+);
+
+-- Abas e views de cada módulo
+CREATE TABLE "FUNCOES_VIEWS" (
+    funid INTEGER NOT NULL,
+    fvnom VARCHAR(100) NOT NULL,
+    fvview VARCHAR(100) NOT NULL,
+    fvord INTEGER NOT NULL DEFAULT 1,
+
+    PRIMARY KEY (funid, fvnom),
+    UNIQUE (funid, fvord),
+
+    CONSTRAINT FK_FUNCOES_VIEWS_FUNCAO
+        FOREIGN KEY (funid)
+        REFERENCES "FUNCOES" (funid)
+        ON DELETE CASCADE,
+
+    CONSTRAINT CK_FUNCOES_VIEWS_ORDEM
+        CHECK (fvord > 0)
+);
+
 -- =====================================================
 -- 2. PERFIS DOS USUARIOS
 -- =====================================================
