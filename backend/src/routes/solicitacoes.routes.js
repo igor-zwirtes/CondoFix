@@ -443,7 +443,7 @@ router.patch(
       const solicitacao = consulta.rows[0];
 
       if (
-        solicitacao.stsnom !== "Aberta" ||
+        solicitacao.stsnom !== "Aprovada" ||
         solicitacao.pvdid !== null
       ) {
         await client.query("ROLLBACK");
@@ -452,7 +452,7 @@ router.patch(
           error: {
             code: "REQUEST_NOT_ASSIGNABLE",
             message:
-              "A solicitação precisa estar Aberta e sem prestador atribuído.",
+              "A solicitação precisa estar aprovada e sem prestador atribuído.",
           },
         });
       }
@@ -819,6 +819,121 @@ router.patch(
         data: {
           id: solicitacaoId,
           status: "Cancelada",
+        },
+      });
+    } catch (error) {
+      await client.query("ROLLBACK").catch(() => {});
+      return next(error);
+    } finally {
+      client.release();
+    }
+  }
+);
+
+router.patch(
+  "/:id/aprovar",
+  autenticar,
+  exigirPapel("ADMIN", "ADMINISTRADOR"),
+  async (req, res, next) => {
+    const solicitacaoId = Number(req.params.id);
+    const usuarioId = req.usuario.id;
+
+    if (!Number.isSafeInteger(solicitacaoId) || solicitacaoId <= 0) {
+      return res.status(400).json({
+        success: false,
+        error: {
+          code: "INVALID_REQUEST_ID",
+          message: "O ID da solicitação deve ser um inteiro positivo.",
+        },
+      });
+    }
+
+    const client = await pool.connect();
+
+    try {
+      await client.query("BEGIN");
+
+      const resultado = await client.query(
+        `SELECT s.soid, s.stsid, st.stsnom
+         FROM "SOLICITACOES" s
+         JOIN "STATUS_SOLICITACAO" st ON st.stsid = s.stsid
+         WHERE s.soid = $1
+         FOR UPDATE OF s`,
+        [solicitacaoId]
+      );
+
+      if (resultado.rows.length === 0) {
+        await client.query("ROLLBACK");
+        return res.status(404).json({
+          success: false,
+          error: {
+            code: "REQUEST_NOT_FOUND",
+            message: "Solicitação não encontrada.",
+          },
+        });
+      }
+
+      const solicitacao = resultado.rows[0];
+
+      if (solicitacao.stsnom !== "Aberta") {
+        await client.query("ROLLBACK");
+        return res.status(409).json({
+          success: false,
+          error: {
+            code: "INVALID_STATUS_TRANSITION",
+            message: "Somente solicitações abertas podem ser aprovadas.",
+          },
+        });
+      }
+
+      const statusAprovada = await client.query(
+        `SELECT stsid
+         FROM "STATUS_SOLICITACAO"
+         WHERE stsnom = $1`,
+        ["Aprovada"]
+      );
+
+      if (statusAprovada.rows.length === 0) {
+        throw new Error('Status "Aprovada" não cadastrado.');
+      }
+
+      const tipoStatus = await client.query(
+        `SELECT typid
+         FROM "TIPOS_ALTERACAO"
+         WHERE typnom = $1`,
+        ["Status"]
+      );
+
+      if (tipoStatus.rows.length === 0) {
+        throw new Error('Tipo de alteração "Status" não cadastrado.');
+      }
+
+      await client.query(
+        `UPDATE "SOLICITACOES"
+         SET stsid = $1
+         WHERE soid = $2`,
+        [statusAprovada.rows[0].stsid, solicitacaoId]
+      );
+
+      await client.query(
+        `INSERT INTO "ALTERACOES" (soid, usrid, typid, altdcp)
+         VALUES ($1, $2, $3, $4)`,
+        [
+          solicitacaoId,
+          usuarioId,
+          tipoStatus.rows[0].typid,
+          "Status alterado de Aberta para Aprovada.",
+        ]
+      );
+
+      await client.query("COMMIT");
+
+      return res.status(200).json({
+        success: true,
+        message: "Solicitação aprovada com sucesso.",
+        data: {
+          id: solicitacaoId,
+          status: "Aprovada",
         },
       });
     } catch (error) {
