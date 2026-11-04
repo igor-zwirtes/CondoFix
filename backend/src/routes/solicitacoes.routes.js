@@ -6,6 +6,88 @@ const exigirPapel = require("../middlewares/require-role.middleware");
 const router = express.Router();
 
 router.get(
+  "/",
+  autenticar,
+  exigirPapel("ADMIN", "ADMINISTRADOR", "USUARIO", "PRESTADOR_SERVICO"),
+  async (req, res, next) => {
+    try {
+      const papeis = req.usuario.papeis;
+      const acessoTotal = papeis.some((papel) =>
+        ["ADMIN", "ADMINISTRADOR"].includes(papel)
+      );
+
+      const filtros = [];
+      const parametros = [];
+
+      if (!acessoTotal) {
+        if (papeis.includes("USUARIO")) {
+          parametros.push(req.usuario.id);
+          filtros.push(`s.usrid = $${parametros.length}`);
+        }
+
+        if (papeis.includes("PRESTADOR_SERVICO")) {
+          parametros.push(req.usuario.id);
+          filtros.push(`s.pvdid = $${parametros.length}`);
+        }
+
+        if (filtros.length === 0) {
+          return res.status(403).json({
+            success: false,
+            error: {
+              code: "FORBIDDEN",
+              message: "Você não tem permissão para acessar este recurso.",
+            },
+          });
+        }
+      }
+
+      let sql = `
+        SELECT
+          s.soid AS id,
+          s.sotit AS titulo,
+          s.sodcp AS descricao,
+          s.soopn AS data_abertura,
+          s.socls AS data_fechamento,
+          st.stsnom AS status,
+          pr.prinom AS prioridade,
+          c.catnom AS categoria,
+          s.usrid AS solicitante_id,
+          solicitante.usrnam AS solicitante,
+          s.pvdid AS prestador_id,
+          prestador.usrnam AS prestador
+        FROM "SOLICITACOES" s
+        JOIN "STATUS_SOLICITACAO" st
+          ON st.stsid = s.stsid
+        JOIN "PRIORIDADES_SOLICITACAO" pr
+          ON pr.priid = s.priid
+        JOIN "CATEGORIAS_SOLICITACAO" c
+          ON c.catid = s.catid
+        JOIN "USUARIOS" solicitante
+          ON solicitante.usrid = s.usrid
+        LEFT JOIN "USUARIOS" prestador
+          ON prestador.usrid = s.pvdid
+      `;
+
+      if (!acessoTotal) {
+        sql += ` WHERE (${filtros.join(" OR ")})`;
+      }
+
+      sql += " ORDER BY s.soopn DESC, s.soid DESC";
+
+      const resultado = await pool.query(sql, parametros);
+
+      return res.status(200).json({
+        success: true,
+        quantidade: resultado.rows.length,
+        data: resultado.rows,
+      });
+    } catch (error) {
+      return next(error);
+    }
+  }
+);
+
+router.get(
   "/:id",
   autenticar,
   exigirPapel("ADMIN", "ADMINISTRADOR", "USUARIO", "PRESTADOR_SERVICO"),
