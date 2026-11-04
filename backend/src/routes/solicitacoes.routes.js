@@ -696,4 +696,138 @@ router.post(
   }
 );
 
+router.patch(
+  "/:id/cancelar",
+  autenticar,
+  exigirPapel("ADMIN", "ADMINISTRADOR", "USUARIO"),
+  async (req, res, next) => {
+    const solicitacaoId = Number(req.params.id);
+    const usuarioId = req.usuario.id;
+    const papeis = req.usuario.papeis;
+
+    if (!Number.isSafeInteger(solicitacaoId) || solicitacaoId <= 0) {
+      return res.status(400).json({
+        success: false,
+        error: {
+          code: "INVALID_REQUEST_ID",
+          message: "O ID da solicitação deve ser um inteiro positivo.",
+        },
+      });
+    }
+
+    const ehAdministrador =
+      papeis.includes("ADMIN") || papeis.includes("ADMINISTRADOR");
+
+    const client = await pool.connect();
+
+    try {
+      await client.query("BEGIN");
+
+      // Bloqueia a solicitação para evitar alterações concorrentes.
+      const resultado = await client.query(
+        `SELECT s.soid, s.usrid, s.stsid, st.stsnom
+         FROM "SOLICITACOES" s
+         JOIN "STATUS_SOLICITACAO" st ON st.stsid = s.stsid
+         WHERE s.soid = $1
+         FOR UPDATE OF s`,
+        [solicitacaoId]
+      );
+
+      if (resultado.rows.length === 0) {
+        await client.query("ROLLBACK");
+        return res.status(404).json({
+          success: false,
+          error: {
+            code: "REQUEST_NOT_FOUND",
+            message: "Solicitação não encontrada.",
+          },
+        });
+      }
+
+      const solicitacao = resultado.rows[0];
+
+      // Moradores só podem cancelar as próprias solicitações.
+      if (!ehAdministrador && solicitacao.usrid !== usuarioId) {
+        await client.query("ROLLBACK");
+        return res.status(404).json({
+          success: false,
+          error: {
+            code: "REQUEST_NOT_FOUND",
+            message: "Solicitação não encontrada.",
+          },
+        });
+      }
+
+      // Só permite cancelar solicitações abertas ou atribuídas.
+      if (!["Aberta", "Atribuida"].includes(solicitacao.stsnom)) {
+        await client.query("ROLLBACK");
+        return res.status(409).json({
+          success: false,
+          error: {
+            code: "INVALID_STATUS_TRANSITION",
+            message:
+              "Somente solicitações abertas ou atribuídas podem ser canceladas.",
+          },
+        });
+      }
+
+      const statusCancelada = await client.query(
+        `SELECT stsid
+         FROM "STATUS_SOLICITACAO"
+         WHERE stsnom = $1`,
+        ["Cancelada"]
+      );
+
+      if (statusCancelada.rows.length === 0) {
+        throw new Error('Status "Cancelada" não cadastrado.');
+      }
+
+      const tipoStatus = await client.query(
+        `SELECT typid
+         FROM "TIPOS_ALTERACAO"
+         WHERE typnom = $1`,
+        ["Status"]
+      );
+
+      if (tipoStatus.rows.length === 0) {
+        throw new Error('Tipo de alteração "Status" não cadastrado.');
+      }
+
+      await client.query(
+        `UPDATE "SOLICITACOES"
+         SET stsid = $1
+         WHERE soid = $2`,
+        [statusCancelada.rows[0].stsid, solicitacaoId]
+      );
+
+      await client.query(
+        `INSERT INTO "ALTERACOES" (soid, usrid, typid, altdcp)
+         VALUES ($1, $2, $3, $4)`,
+        [
+          solicitacaoId,
+          usuarioId,
+          tipoStatus.rows[0].typid,
+          `Status alterado de ${solicitacao.stsnom} para Cancelada.`,
+        ]
+      );
+
+      await client.query("COMMIT");
+
+      return res.status(200).json({
+        success: true,
+        message: "Solicitação cancelada com sucesso.",
+        data: {
+          id: solicitacaoId,
+          status: "Cancelada",
+        },
+      });
+    } catch (error) {
+      await client.query("ROLLBACK").catch(() => {});
+      return next(error);
+    } finally {
+      client.release();
+    }
+  }
+);
+
 module.exports = router;
