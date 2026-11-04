@@ -39,22 +39,22 @@ ON CONFLICT (cmpcnpj) DO NOTHING;
 INSERT INTO "USUARIOS" (usrnam, usrphn, usreml, usrpsw)
 VALUES
     ('Administrador do Sistema', '21990000001',
-     'admin@condofix.local', 'admin123'),
+     'admin@condofix.local', '$2b$12$Q7/WzN9rbvkfeeAlaeeo6eU09/ngQ2Athe7zO7tPuzCehaexz1JrS'),
 
     ('Sindico do Condominio', '21990000002',
-     'sindico@condofix.local', 'sindico123'),
+     'sindico@condofix.local', '$2b$12$cwf/9PdaLEs4X6T5K5/vheRNkQvbzURia9tj/Eczm5I2mAqHix3ya'),
 
     ('Joao da Silva', '21990000003',
-     'morador@condofix.local', 'morador123'),
+     'morador@condofix.local', '$2b$12$MbKGx6X/psEx8OZuul9WVOfAhAYHrshsCwsh./OafAp7a.kLQmHxi'),
 
     ('Maria Oliveira', '21990000004',
-     'maria@condofix.local', 'maria123'),
+     'maria@condofix.local', '$2b$12$TGJwZW6vYVsalaGhqNT9uuSfo.ouxou.2oCu7s8nn6lj.gFkkNIp6'),
 
     ('Carlos Souza', '21990000005',
-     'prestador@condofix.local', 'prestador123'),
+     'prestador@condofix.local', '$2b$12$Jj6QvmGsJPkNPbmWfCxHX.VRUo.5SvsWcRc4juBnfmNILj.NtQRea'),
 
     ('Ana Costa', '21990000006',
-     'ana.prestador@condofix.local', 'ana123')
+     'ana.prestador@condofix.local', '$2b$12$pWebT.bbwM0TC8ANLf4XDe/7CC2EtGpHdmA4BmbclaNQQ09Vb9X/a')
 ON CONFLICT (usreml) DO NOTHING;
 
 
