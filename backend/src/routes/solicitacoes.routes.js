@@ -85,4 +85,137 @@ router.get(
   }
 );
 
+
+router.patch(
+  "/:id/status",
+  autenticar,
+  exigirPapel("PRESTADOR_SERVICO"),
+  async (req, res, next) => {
+    const id = Number(req.params.id);
+    const { status } = req.body;
+
+    if (!Number.isSafeInteger(id) || id <= 0) {
+      return res.status(400).json({
+        success: false,
+        error: {
+          code: "INVALID_REQUEST_ID",
+          message: "O ID da solicitação deve ser um inteiro positivo.",
+        },
+      });
+    }
+
+    const transicoesPermitidas = {
+      Atribuida: "Em andamento",
+      "Em andamento": "Concluida",
+    };
+
+    if (typeof status !== "string" ||
+        !Object.values(transicoesPermitidas).includes(status)) {
+      return res.status(400).json({
+        success: false,
+        error: {
+          code: "INVALID_STATUS",
+          message: "Status solicitado inválido.",
+        },
+      });
+    }
+
+    const client = await pool.connect();
+
+    try {
+      await client.query("BEGIN");
+
+      const consulta = await client.query(
+        `SELECT s.soid, s.pvdid, s.stsid, st.stsnom
+         FROM "SOLICITACOES" s
+         JOIN "STATUS_SOLICITACAO" st ON st.stsid = s.stsid
+         WHERE s.soid = $1
+         FOR UPDATE OF s`,
+        [id]
+      );
+
+      if (consulta.rows.length === 0) {
+        await client.query("ROLLBACK");
+        return res.status(404).json({
+          success: false,
+          error: {
+            code: "REQUEST_NOT_FOUND",
+            message: "Solicitação não encontrada.",
+          },
+        });
+      }
+
+      const solicitacao = consulta.rows[0];
+
+      if (solicitacao.pvdid !== req.usuario.id) {
+        await client.query("ROLLBACK");
+        return res.status(404).json({
+          success: false,
+          error: {
+            code: "REQUEST_NOT_FOUND",
+            message: "Solicitação não encontrada.",
+          },
+        });
+      }
+
+      if (transicoesPermitidas[solicitacao.stsnom] !== status) {
+        await client.query("ROLLBACK");
+        return res.status(409).json({
+          success: false,
+          error: {
+            code: "INVALID_STATUS_TRANSITION",
+            message: "Esta transição de status não é permitida.",
+          },
+        });
+      }
+
+      const novoStatus = await client.query(
+        `SELECT stsid
+         FROM "STATUS_SOLICITACAO"
+         WHERE stsnom = $1`,
+        [status]
+      );
+
+      if (novoStatus.rows.length === 0) {
+        throw new Error(`Status não cadastrado: ${status}`);
+      }
+
+      await client.query(
+        `UPDATE "SOLICITACOES"
+         SET stsid = $1
+         WHERE soid = $2`,
+        [novoStatus.rows[0].stsid, id]
+      );
+
+      await client.query(
+        `INSERT INTO "ALTERACOES" (soid, usrid, typid, altdcp)
+         VALUES ($1, $2, $3, $4)`,
+        [
+          id,
+          req.usuario.id,
+          6,
+          `Status alterado de "${solicitacao.stsnom}" para "${status}".`,
+        ]
+      );
+
+      await client.query("COMMIT");
+
+      return res.status(200).json({
+        success: true,
+        data: {
+          id,
+          statusAnterior: solicitacao.stsnom,
+          statusAtual: status,
+        },
+      });
+    } catch (error) {
+      await client.query("ROLLBACK").catch(() => {});
+      return next(error);
+    } finally {
+      client.release();
+    }
+  }
+);
+
+
 module.exports = router;
