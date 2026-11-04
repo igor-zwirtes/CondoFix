@@ -218,4 +218,146 @@ router.patch(
 );
 
 
+router.patch(
+  "/:id/prestador",
+  autenticar,
+  exigirPapel("ADMIN", "ADMINISTRADOR"),
+  async (req, res, next) => {
+    const id = Number(req.params.id);
+    const { prestadorId } = req.body;
+
+    if (!Number.isSafeInteger(id) || id <= 0) {
+      return res.status(400).json({
+        success: false,
+        error: {
+          code: "INVALID_REQUEST_ID",
+          message: "O ID da solicitação deve ser um inteiro positivo.",
+        },
+      });
+    }
+
+    if (
+      !Number.isSafeInteger(prestadorId) ||
+      prestadorId <= 0
+    ) {
+      return res.status(400).json({
+        success: false,
+        error: {
+          code: "INVALID_PROVIDER_ID",
+          message: "O ID do prestador deve ser um inteiro positivo.",
+        },
+      });
+    }
+
+    const client = await pool.connect();
+
+    try {
+      await client.query("BEGIN");
+
+      const consulta = await client.query(
+        `SELECT s.soid, s.pvdid, s.stsid, st.stsnom
+         FROM "SOLICITACOES" s
+         JOIN "STATUS_SOLICITACAO" st
+           ON st.stsid = s.stsid
+         WHERE s.soid = $1
+         FOR UPDATE OF s`,
+        [id]
+      );
+
+      if (consulta.rows.length === 0) {
+        await client.query("ROLLBACK");
+        return res.status(404).json({
+          success: false,
+          error: {
+            code: "REQUEST_NOT_FOUND",
+            message: "Solicitação não encontrada.",
+          },
+        });
+      }
+
+      const solicitacao = consulta.rows[0];
+
+      if (
+        solicitacao.stsnom !== "Aberta" ||
+        solicitacao.pvdid !== null
+      ) {
+        await client.query("ROLLBACK");
+        return res.status(409).json({
+          success: false,
+          error: {
+            code: "REQUEST_NOT_ASSIGNABLE",
+            message:
+              "A solicitação precisa estar Aberta e sem prestador atribuído.",
+          },
+        });
+      }
+
+      const prestador = await client.query(
+        `SELECT p.usrid
+         FROM "PRESTADORES_SERVICO" p
+         WHERE p.usrid = $1`,
+        [prestadorId]
+      );
+
+      if (prestador.rows.length === 0) {
+        await client.query("ROLLBACK");
+        return res.status(404).json({
+          success: false,
+          error: {
+            code: "PROVIDER_NOT_FOUND",
+            message: "Prestador de serviço não encontrado.",
+          },
+        });
+      }
+
+      const statusAtribuida = await client.query(
+        `SELECT stsid
+         FROM "STATUS_SOLICITACAO"
+         WHERE stsnom = $1`,
+        ["Atribuida"]
+      );
+
+      if (statusAtribuida.rows.length === 0) {
+        throw new Error('Status "Atribuida" não cadastrado.');
+      }
+
+      await client.query(
+        `UPDATE "SOLICITACOES"
+         SET pvdid = $1,
+             stsid = $2
+         WHERE soid = $3`,
+        [prestadorId, statusAtribuida.rows[0].stsid, id]
+      );
+
+      await client.query(
+        `INSERT INTO "ALTERACOES" (soid, usrid, typid, altdcp)
+         VALUES ($1, $2, $3, $4)`,
+        [
+          id,
+          req.usuario.id,
+          3,
+          `Prestador atribuído: usuário ${prestadorId}.`,
+        ]
+      );
+
+      await client.query("COMMIT");
+
+      return res.status(200).json({
+        success: true,
+        data: {
+          id,
+          prestadorId,
+          statusAnterior: solicitacao.stsnom,
+          statusAtual: "Atribuida",
+        },
+      });
+    } catch (error) {
+      await client.query("ROLLBACK").catch(() => {});
+      return next(error);
+    } finally {
+      client.release();
+    }
+  }
+);
+
 module.exports = router;
