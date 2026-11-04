@@ -167,6 +167,89 @@ router.get(
   }
 );
 
+router.get(
+  "/:id/historico",
+  autenticar,
+  exigirPapel("ADMIN", "ADMINISTRADOR", "USUARIO", "PRESTADOR_SERVICO"),
+  async (req, res, next) => {
+    const solicitacaoId = Number(req.params.id);
+    const usuarioId = req.usuario.id;
+    const papeis = req.usuario.papeis;
+
+    if (!Number.isSafeInteger(solicitacaoId) || solicitacaoId <= 0) {
+      return res.status(400).json({
+        success: false,
+        error: {
+          code: "INVALID_REQUEST_ID",
+          message: "O ID da solicitação deve ser um inteiro positivo.",
+        },
+      });
+    }
+
+    try {
+      // Busca a solicitação e verifica se o usuário pode acessá-la.
+      const solicitacao = await pool.query(
+        `SELECT soid, usrid, pvdid
+         FROM "SOLICITACOES"
+         WHERE soid = $1`,
+        [solicitacaoId]
+      );
+
+      if (solicitacao.rows.length === 0) {
+        return res.status(404).json({
+          success: false,
+          error: {
+            code: "REQUEST_NOT_FOUND",
+            message: "Solicitação não encontrada.",
+          },
+        });
+      }
+
+      const registro = solicitacao.rows[0];
+      const ehAdministrador =
+        papeis.includes("ADMIN") || papeis.includes("ADMINISTRADOR");
+      const ehSolicitante = registro.usrid === usuarioId;
+      const ehPrestador =
+        registro.pvdid !== null && registro.pvdid === usuarioId;
+
+      if (!ehAdministrador && !ehSolicitante && !ehPrestador) {
+        return res.status(404).json({
+          success: false,
+          error: {
+            code: "REQUEST_NOT_FOUND",
+            message: "Solicitação não encontrada.",
+          },
+        });
+      }
+
+      // Recupera o histórico em ordem cronológica.
+      const historico = await pool.query(
+        `SELECT
+           a.altid AS id,
+           a.soid AS solicitacao_id,
+           a.usrid AS usuario_id,
+           u.usrnam AS usuario,
+           ta.typnom AS tipo,
+           a.altdcp AS descricao,
+           a.alttim AS data
+         FROM "ALTERACOES" a
+         JOIN "USUARIOS" u ON u.usrid = a.usrid
+         JOIN "TIPOS_ALTERACAO" ta ON ta.typid = a.typid
+         WHERE a.soid = $1
+         ORDER BY a.alttim ASC, a.altid ASC`,
+        [solicitacaoId]
+      );
+
+      return res.status(200).json({
+        success: true,
+        quantidade: historico.rows.length,
+        data: historico.rows,
+      });
+    } catch (error) {
+      return next(error);
+    }
+  }
+);
 
 router.patch(
   "/:id/status",
