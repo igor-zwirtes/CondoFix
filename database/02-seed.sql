@@ -46,5 +46,6 @@ VALUES
     ('Conclusao'),
     ('Descricao'),
     ('Status'),
-    ('Prioridade')
+    ('Prioridade'),
+    ('Criacao')
 ON CONFLICT (typnom) DO NOTHING;

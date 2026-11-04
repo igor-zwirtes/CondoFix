@@ -442,4 +442,175 @@ router.patch(
   }
 );
 
+router.post(
+  "/",
+  autenticar,
+  exigirPapel("USUARIO"),
+  async (req, res, next) => {
+    const { titulo, descricao, apartamentoId, categoriaId } = req.body;
+    const usuarioId = req.usuario.id;
+
+    if (
+      typeof titulo !== "string" ||
+      !titulo.trim() ||
+      titulo.trim().length > 255 ||
+      typeof descricao !== "string" ||
+      !descricao.trim() ||
+      !Number.isSafeInteger(apartamentoId) ||
+      apartamentoId <= 0 ||
+      !Number.isSafeInteger(categoriaId) ||
+      categoriaId <= 0
+    ) {
+      return res.status(400).json({
+        success: false,
+        error: {
+          code: "INVALID_REQUEST_DATA",
+          message:
+            "Informe título, descrição, apartamentoId e categoriaId válidos.",
+        },
+      });
+    }
+
+    const client = await pool.connect();
+
+    try {
+      await client.query("BEGIN");
+
+      // Confirma que o apartamento pertence ao morador autenticado.
+      const apartamento = await client.query(
+        `SELECT 1
+         FROM "MORADORES"
+         WHERE usrid = $1 AND aptid = $2`,
+        [usuarioId, apartamentoId]
+      );
+
+      if (apartamento.rows.length === 0) {
+        await client.query("ROLLBACK");
+        return res.status(403).json({
+          success: false,
+          error: {
+            code: "APARTMENT_NOT_ACCESSIBLE",
+            message: "Você não está vinculado a esse apartamento.",
+          },
+        });
+      }
+
+      // Confirma que a categoria existe.
+      const categoria = await client.query(
+        `SELECT catid
+         FROM "CATEGORIAS_SOLICITACAO"
+         WHERE catid = $1`,
+        [categoriaId]
+      );
+
+      if (categoria.rows.length === 0) {
+        await client.query("ROLLBACK");
+        return res.status(400).json({
+          success: false,
+          error: {
+            code: "INVALID_CATEGORY",
+            message: "A categoria informada não existe.",
+          },
+        });
+      }
+
+      // A prioridade inicial é definida pelo backend.
+      const prioridade = await client.query(
+        `SELECT priid
+         FROM "PRIORIDADES_SOLICITACAO"
+         WHERE prinom = $1`,
+        ["Normal"]
+      );
+
+      if (prioridade.rows.length === 0) {
+        throw new Error('Prioridade "Normal" não cadastrada.');
+      }
+
+      const status = await client.query(
+        `SELECT stsid
+         FROM "STATUS_SOLICITACAO"
+         WHERE stsnom = $1`,
+        ["Aberta"]
+      );
+
+      if (status.rows.length === 0) {
+        throw new Error('Status "Aberta" não cadastrado.');
+      }
+
+      const criacao = await client.query(
+        `INSERT INTO "SOLICITACOES" (
+           usrid,
+           sotit,
+           aptid,
+           sodcp,
+           catid,
+           priid,
+           stsid
+         )
+         VALUES ($1, $2, $3, $4, $5, $6, $7)
+         RETURNING soid, sotit, aptid, sodcp, catid,
+                   priid, stsid, soopn, socls, pvdid`,
+        [
+          usuarioId,
+          titulo.trim(),
+          apartamentoId,
+          descricao.trim(),
+          categoriaId,
+          prioridade.rows[0].priid,
+          status.rows[0].stsid,
+        ]
+      );
+
+      const solicitacao = criacao.rows[0];
+
+      // Busca o tipo de alteração correspondente à criação.
+      const tipoCriacao = await client.query(
+        `SELECT typid
+        FROM "TIPOS_ALTERACAO"
+        WHERE typnom = $1`,
+        ["Criacao"]
+        );
+
+        if (tipoCriacao.rows.length === 0) {
+        throw new Error('Tipo de alteração "Criacao" não cadastrado.');
+        }
+
+        // Registra a criação no histórico.
+        await client.query(
+        `INSERT INTO "ALTERACOES" (soid, usrid, typid, altdcp)
+        VALUES ($1, $2, $3, $4)`,
+        [
+            solicitacao.soid,
+            usuarioId,
+            tipoCriacao.rows[0].typid,
+            "Solicitação criada pelo usuário.",
+        ]
+        );
+
+      await client.query("COMMIT");
+
+      return res.status(201).json({
+        success: true,
+        data: {
+          id: solicitacao.soid,
+          titulo: solicitacao.sotit,
+          apartamentoId: solicitacao.aptid,
+          descricao: solicitacao.sodcp,
+          categoriaId: solicitacao.catid,
+          prioridadeId: solicitacao.priid,
+          statusId: solicitacao.stsid,
+          dataAbertura: solicitacao.soopn,
+          dataFechamento: solicitacao.socls,
+          prestadorId: solicitacao.pvdid,
+        },
+      });
+    } catch (error) {
+      await client.query("ROLLBACK").catch(() => {});
+      return next(error);
+    } finally {
+      client.release();
+    }
+  }
+);
+
 module.exports = router;
