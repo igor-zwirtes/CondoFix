@@ -945,4 +945,198 @@ router.patch(
   }
 );
 
+router.patch(
+  "/:id/aceitar",
+  autenticar,
+  exigirPapel("USUARIO"),
+  async (req, res, next) => {
+    const { id } = req.params;
+    const { nota, comentario } = req.body;
+    const usuarioId = req.usuario.id;
+
+    // Validar o ID da solicitação.
+    if (!/^[1-9]\d*$/.test(id)) {
+      return res.status(400).json({
+        erro: "ID da solicitação inválido.",
+      });
+    }
+
+    // Validar a nota.
+    if (
+      !Number.isInteger(nota) ||
+      nota < 1 ||
+      nota > 5
+    ) {
+      return res.status(400).json({
+        erro: "A nota deve ser um número inteiro entre 1 e 5.",
+      });
+    }
+
+    // Validar o comentário, que é opcional.
+    if (
+      comentario !== undefined &&
+      comentario !== null &&
+      typeof comentario !== "string"
+    ) {
+      return res.status(400).json({
+        erro: "O comentário deve ser um texto.",
+      });
+    }
+
+    const comentarioFinal =
+      comentario == null || comentario.trim() === ""
+        ? null
+        : comentario.trim();
+
+    const client = await pool.connect();
+
+    try {
+      await client.query("BEGIN");
+
+      // Bloquear a solicitação para evitar operações concorrentes.
+      const resultado = await client.query(
+        `
+        SELECT s.soid, s.usrid, s.stsid, ss.stsnom
+        FROM "SOLICITACOES" s
+        JOIN "STATUS_SOLICITACAO" ss
+          ON ss.stsid = s.stsid
+        WHERE s.soid = $1
+        FOR UPDATE OF s
+        `,
+        [Number(id)]
+      );
+
+      if (resultado.rowCount === 0) {
+        await client.query("ROLLBACK");
+
+        return res.status(404).json({
+          erro: "Solicitação não encontrada.",
+        });
+      }
+
+      const solicitacao = resultado.rows[0];
+
+      // Garantir que o morador seja o proprietário.
+      if (solicitacao.usrid !== usuarioId) {
+        await client.query("ROLLBACK");
+
+        return res.status(403).json({
+          erro: "Você não pode aceitar esta solicitação.",
+        });
+      }
+
+      // Somente solicitações concluídas podem ser aceitas.
+      if (solicitacao.stsnom !== "Concluida") {
+        await client.query("ROLLBACK");
+
+        return res.status(409).json({
+          erro: "A solicitação precisa estar concluída para ser aceita.",
+        });
+      }
+
+      // Buscar o tipo de alteração pelo nome, sem depender do ID.
+      const tipoResultado = await client.query(
+        `
+        SELECT typid
+        FROM "TIPOS_ALTERACAO"
+        WHERE typnom = 'Status'
+        `
+      );
+
+      if (tipoResultado.rowCount === 0) {
+        throw new Error(
+          "Tipo de alteração 'Status' não cadastrado."
+        );
+      }
+
+      const tipoStatusId = tipoResultado.rows[0].typid;
+
+      // Registrar a avaliação enquanto o status ainda é Concluida.
+      // A trigger FN_VALIDAR_AVALIACAO exige esse status.
+      await client.query(
+        `
+        INSERT INTO "AVALIACOES" (soid, evascr, evanot)
+        VALUES ($1, $2, $3)
+        `,
+        [Number(id), nota, comentarioFinal]
+      );
+
+      // Alterar o status para Aceita.
+      const statusResultado = await client.query(
+        `
+        SELECT stsid
+        FROM "STATUS_SOLICITACAO"
+        WHERE stsnom = 'Aceita'
+        `
+      );
+
+      if (statusResultado.rowCount === 0) {
+        throw new Error(
+          "Status 'Aceita' não cadastrado."
+        );
+      }
+
+      const statusAceitaId = statusResultado.rows[0].stsid;
+
+      await client.query(
+        `
+        UPDATE "SOLICITACOES"
+        SET stsid = $1
+        WHERE soid = $2
+        `,
+        [statusAceitaId, Number(id)]
+      );
+
+      // Registrar a mudança no histórico.
+      await client.query(
+        `
+        INSERT INTO "ALTERACOES"
+          (soid, usrid, typid, altdcp)
+        VALUES ($1, $2, $3, $4)
+        `,
+        [
+          Number(id),
+          usuarioId,
+          tipoStatusId,
+          "Solicitação aceita pelo morador e avaliação registrada. Status: Concluida -> Aceita.",
+        ]
+      );
+
+      await client.query("COMMIT");
+
+      return res.status(200).json({
+        mensagem: "Solicitação aceita e avaliação registrada com sucesso.",
+        solicitacao: {
+          id: Number(id),
+          status: "Aceita",
+          avaliacao: {
+            nota,
+            comentario: comentarioFinal,
+          },
+        },
+      });
+    } catch (erro) {
+      await client.query("ROLLBACK");
+
+      // A PK de AVALIACOES impede mais de uma avaliação por solicitação.
+      if (erro.code === "23505") {
+        return res.status(409).json({
+          erro: "Esta solicitação já possui uma avaliação.",
+        });
+      }
+
+      // A nota também é protegida pela constraint do banco.
+      if (erro.code === "23514") {
+        return res.status(400).json({
+          erro: "A avaliação não atende às regras de validação.",
+        });
+      }
+
+      return next(erro);
+    } finally {
+      client.release();
+    }
+  }
+);
+
 module.exports = router;

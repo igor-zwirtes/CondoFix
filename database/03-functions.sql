@@ -369,9 +369,9 @@ BEGIN
     JOIN "STATUS_SOLICITACAO" ss ON ss.stsid = s.stsid
     WHERE s.soid = NEW.soid;
 
-    IF v_status IS DISTINCT FROM 'Finalizada' THEN
+    IF v_status IS DISTINCT FROM 'Concluida' THEN
         RAISE EXCEPTION
-            'Apenas solicitações finalizadas podem ser avaliadas.';
+            'Apenas solicitações concluidas podem ser avaliadas.';
     END IF;
 
     RETURN NEW;
