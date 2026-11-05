@@ -1700,4 +1700,163 @@ router.patch(
   }
 );
 
+router.patch(
+  "/:id/prioridade",
+  autenticar,
+  exigirPapel("ADMIN", "ADMINISTRADOR"),
+  async (req, res, next) => {
+    const solicitacaoId = Number(req.params.id);
+    const { prioridade } = req.body;
+    const usuarioId = req.usuario.id;
+
+    // Validar o ID.
+    if (!Number.isSafeInteger(solicitacaoId) || solicitacaoId <= 0) {
+      return res.status(400).json({
+        success: false,
+        error: {
+          code: "INVALID_REQUEST_ID",
+          message: "O ID da solicitação deve ser um inteiro positivo.",
+        },
+      });
+    }
+
+    // Validar a prioridade.
+    const prioridadesPermitidas = [
+      "Baixa",
+      "Normal",
+      "Alta",
+      "Urgente",
+    ];
+
+    if (
+      typeof prioridade !== "string" ||
+      !prioridadesPermitidas.includes(prioridade)
+    ) {
+      return res.status(400).json({
+        success: false,
+        error: {
+          code: "INVALID_PRIORITY",
+          message:
+            "A prioridade deve ser Baixa, Normal, Alta ou Urgente.",
+        },
+      });
+    }
+
+    const client = await pool.connect();
+
+    try {
+      await client.query("BEGIN");
+
+      // Bloquear a solicitação para evitar alterações concorrentes.
+      const consulta = await client.query(
+        `SELECT
+           s.soid,
+           s.priid,
+           p.prinom AS prioridade_atual
+         FROM "SOLICITACOES" s
+         JOIN "PRIORIDADES_SOLICITACAO" p
+           ON p.priid = s.priid
+         WHERE s.soid = $1
+         FOR UPDATE OF s`,
+        [solicitacaoId]
+      );
+
+      if (consulta.rows.length === 0) {
+        await client.query("ROLLBACK");
+
+        return res.status(404).json({
+          success: false,
+          error: {
+            code: "REQUEST_NOT_FOUND",
+            message: "Solicitação não encontrada.",
+          },
+        });
+      }
+
+      const solicitacao = consulta.rows[0];
+
+      // Não registrar alteração se a prioridade já for a mesma.
+      if (solicitacao.prioridade_atual === prioridade) {
+        await client.query("ROLLBACK");
+
+        return res.status(200).json({
+          success: true,
+          message: "A solicitação já possui essa prioridade.",
+          data: {
+            id: solicitacaoId,
+            prioridadeAnterior: prioridade,
+            prioridadeAtual: prioridade,
+          },
+        });
+      }
+
+      // Buscar o ID da nova prioridade.
+      const novaPrioridade = await client.query(
+        `SELECT priid
+         FROM "PRIORIDADES_SOLICITACAO"
+         WHERE prinom = $1`,
+        [prioridade]
+      );
+
+      if (novaPrioridade.rows.length === 0) {
+        throw new Error(
+          `Prioridade "${prioridade}" não cadastrada no banco.`
+        );
+      }
+
+      // Buscar o tipo de alteração do histórico.
+      const tipoAlteracao = await client.query(
+        `SELECT typid
+         FROM "TIPOS_ALTERACAO"
+         WHERE typnom = $1`,
+        ["Status"]
+      );
+
+      if (tipoAlteracao.rows.length === 0) {
+        throw new Error(
+          'Tipo de alteração "Status" não cadastrado.'
+        );
+      }
+
+      // Atualizar a prioridade.
+      await client.query(
+        `UPDATE "SOLICITACOES"
+         SET priid = $1
+         WHERE soid = $2`,
+        [novaPrioridade.rows[0].priid, solicitacaoId]
+      );
+
+      // Registrar a mudança no histórico.
+      await client.query(
+        `INSERT INTO "ALTERACOES"
+           (soid, usrid, typid, altdcp)
+         VALUES ($1, $2, $3, $4)`,
+        [
+          solicitacaoId,
+          usuarioId,
+          tipoAlteracao.rows[0].typid,
+          `Prioridade alterada de "${solicitacao.prioridade_atual}" para "${prioridade}".`,
+        ]
+      );
+
+      await client.query("COMMIT");
+
+      return res.status(200).json({
+        success: true,
+        message: "Prioridade atualizada com sucesso.",
+        data: {
+          id: solicitacaoId,
+          prioridadeAnterior: solicitacao.prioridade_atual,
+          prioridadeAtual: prioridade,
+        },
+      });
+    } catch (error) {
+      await client.query("ROLLBACK").catch(() => {});
+      return next(error);
+    } finally {
+      client.release();
+    }
+  }
+);
+
 module.exports = router;
