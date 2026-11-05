@@ -1465,4 +1465,89 @@ router.patch(
   }
 );
 
+router.get(
+  "/:id/faturamento",
+  autenticar,
+  exigirPapel("ADMIN", "ADMINISTRADOR", "USUARIO", "PRESTADOR_SERVICO"),
+  async (req, res, next) => {
+    const solicitacaoId = Number(req.params.id);
+    const usuarioId = req.usuario.id;
+    const papeis = req.usuario.papeis;
+
+    if (!Number.isSafeInteger(solicitacaoId) || solicitacaoId <= 0) {
+      return res.status(400).json({
+        success: false,
+        error: {
+          code: "INVALID_REQUEST_ID",
+          message: "O ID da solicitação deve ser um inteiro positivo.",
+        },
+      });
+    }
+
+    try {
+      const ehAdministrador = papeis.some((papel) =>
+        ["ADMIN", "ADMINISTRADOR"].includes(papel)
+      );
+
+      const resultado = await pool.query(
+        `SELECT
+           f.soid AS solicitacao_id,
+           f.fatval AS valor,
+           f.fatdcp AS descricao,
+           f.fatdat AS data_registro,
+           f.usrid AS prestador_id,
+           u.usrnam AS prestador
+         FROM "SOLICITACOES" s
+         LEFT JOIN "FATURAMENTOS" f
+           ON f.soid = s.soid
+         LEFT JOIN "USUARIOS" u
+           ON u.usrid = f.usrid
+         WHERE s.soid = $1
+           AND (
+             $3::boolean = TRUE
+             OR s.usrid = $2
+             OR s.pvdid = $2
+           )`,
+        [solicitacaoId, usuarioId, ehAdministrador]
+      );
+
+      if (resultado.rows.length === 0) {
+        return res.status(404).json({
+          success: false,
+          error: {
+            code: "REQUEST_NOT_FOUND",
+            message: "Solicitação não encontrada.",
+          },
+        });
+      }
+
+      const faturamento = resultado.rows[0];
+
+      if (faturamento.valor === null) {
+        return res.status(404).json({
+          success: false,
+          error: {
+            code: "BILLING_NOT_FOUND",
+            message: "Esta solicitação ainda não possui faturamento.",
+          },
+        });
+      }
+
+      return res.status(200).json({
+        success: true,
+        data: {
+          solicitacaoId: faturamento.solicitacao_id,
+          valor: faturamento.valor,
+          descricao: faturamento.descricao,
+          dataRegistro: faturamento.data_registro,
+          prestadorId: faturamento.prestador_id,
+          prestador: faturamento.prestador,
+        },
+      });
+    } catch (error) {
+      return next(error);
+    }
+  }
+);
+
 module.exports = router;
