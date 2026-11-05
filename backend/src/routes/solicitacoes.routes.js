@@ -1550,4 +1550,154 @@ router.get(
   }
 );
 
+router.patch(
+  "/:id/reabrir",
+  autenticar,
+  exigirPapel("ADMIN", "ADMINISTRADOR", "USUARIO"),
+  async (req, res, next) => {
+    const solicitacaoId = Number(req.params.id);
+    const usuarioId = req.usuario.id;
+    const papeis = req.usuario.papeis;
+
+    // Validar ID.
+    if (!Number.isSafeInteger(solicitacaoId) || solicitacaoId <= 0) {
+      return res.status(400).json({
+        success: false,
+        error: {
+          code: "INVALID_REQUEST_ID",
+          message: "O ID da solicitação deve ser um inteiro positivo.",
+        },
+      });
+    }
+
+    const ehAdministrador = papeis.some((papel) =>
+      ["ADMIN", "ADMINISTRADOR"].includes(papel)
+    );
+
+    const client = await pool.connect();
+
+    try {
+      await client.query("BEGIN");
+
+      // Busca e bloqueia a solicitação para evitar alterações concorrentes.
+      const resultado = await client.query(
+        `SELECT
+           s.soid,
+           s.usrid,
+           s.stsid,
+           st.stsnom
+         FROM "SOLICITACOES" s
+         JOIN "STATUS_SOLICITACAO" st
+           ON st.stsid = s.stsid
+         WHERE s.soid = $1
+         FOR UPDATE OF s`,
+        [solicitacaoId]
+      );
+
+      if (resultado.rows.length === 0) {
+        await client.query("ROLLBACK");
+
+        return res.status(404).json({
+          success: false,
+          error: {
+            code: "REQUEST_NOT_FOUND",
+            message: "Solicitação não encontrada.",
+          },
+        });
+      }
+
+      const solicitacao = resultado.rows[0];
+
+      // Moradores só podem reabrir as próprias solicitações.
+      if (!ehAdministrador && solicitacao.usrid !== usuarioId) {
+        await client.query("ROLLBACK");
+
+        return res.status(404).json({
+          success: false,
+          error: {
+            code: "REQUEST_NOT_FOUND",
+            message: "Solicitação não encontrada.",
+          },
+        });
+      }
+
+      // Somente solicitações concluídas podem ser reabertas.
+      if (solicitacao.stsnom !== "Concluida") {
+        await client.query("ROLLBACK");
+
+        return res.status(409).json({
+          success: false,
+          error: {
+            code: "INVALID_STATUS_TRANSITION",
+            message:
+              "Somente solicitações concluídas podem ser reabertas.",
+          },
+        });
+      }
+
+      // Busca o status de destino.
+      const statusResultado = await client.query(
+        `SELECT stsid
+         FROM "STATUS_SOLICITACAO"
+         WHERE stsnom = $1`,
+        ["Em andamento"]
+      );
+
+      if (statusResultado.rows.length === 0) {
+        throw new Error('Status "Em andamento" não cadastrado.');
+      }
+
+      // Busca o tipo de alteração.
+      const tipoResultado = await client.query(
+        `SELECT typid
+         FROM "TIPOS_ALTERACAO"
+         WHERE typnom = $1`,
+        ["Status"]
+      );
+
+      if (tipoResultado.rows.length === 0) {
+        throw new Error('Tipo de alteração "Status" não cadastrado.');
+      }
+
+      // Atualiza o status. A trigger de fechamento deverá limpar socls.
+      await client.query(
+        `UPDATE "SOLICITACOES"
+         SET stsid = $1
+         WHERE soid = $2`,
+        [statusResultado.rows[0].stsid, solicitacaoId]
+      );
+
+      // Registra a reabertura no histórico.
+      await client.query(
+        `INSERT INTO "ALTERACOES"
+           (soid, usrid, typid, altdcp)
+         VALUES ($1, $2, $3, $4)`,
+        [
+          solicitacaoId,
+          usuarioId,
+          tipoResultado.rows[0].typid,
+          `Solicitação reaberta por ${ehAdministrador ? "administrador/síndico" : "morador"}. Status alterado de Concluida para Em andamento.`,
+        ]
+      );
+
+      await client.query("COMMIT");
+
+      return res.status(200).json({
+        success: true,
+        message: "Solicitação reaberta com sucesso.",
+        data: {
+          id: solicitacaoId,
+          statusAnterior: "Concluida",
+          statusAtual: "Em andamento",
+        },
+      });
+    } catch (error) {
+      await client.query("ROLLBACK").catch(() => {});
+      return next(error);
+    } finally {
+      client.release();
+    }
+  }
+);
+
 module.exports = router;
