@@ -1,4 +1,3 @@
-
 const bcrypt = require("bcryptjs");
 const jwt = require("jsonwebtoken");
 const pool = require("../config/database");
@@ -21,6 +20,7 @@ async function login(email, senha) {
      LEFT JOIN "ROLES" r
        ON r.roleid = ur.roleid
      WHERE LOWER(u.usreml) = LOWER($1)
+       AND u.usract = TRUE
      GROUP BY u.usrid`,
     [email]
   );
@@ -30,6 +30,7 @@ async function login(email, senha) {
   }
 
   const usuario = resultado.rows[0];
+
   const senhaValida = await bcrypt.compare(
     senha,
     usuario.usrpsw
@@ -46,7 +47,6 @@ async function login(email, senha) {
   const token = jwt.sign(
     {
       sub: String(usuario.usrid),
-      papeis: usuario.papeis,
     },
     process.env.JWT_SECRET,
     {

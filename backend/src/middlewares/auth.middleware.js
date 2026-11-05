@@ -1,7 +1,7 @@
-
 const jwt = require("jsonwebtoken");
+const pool = require("../config/database");
 
-function autenticar(req, res, next) {
+async function autenticar(req, res, next) {
   const authorization = req.headers.authorization;
 
   if (!authorization || !authorization.startsWith("Bearer ")) {
@@ -16,41 +16,12 @@ function autenticar(req, res, next) {
 
   const token = authorization.slice(7);
 
+  let payload;
+
   try {
-    const payload = jwt.verify(token, process.env.JWT_SECRET, {
+    payload = jwt.verify(token, process.env.JWT_SECRET, {
       algorithms: ["HS256"],
     });
-
-    if (
-      typeof payload.sub !== "string" ||
-      !Array.isArray(payload.papeis) ||
-      !payload.papeis.every((papel) => typeof papel === "string")
-    ) {
-      return res.status(401).json({
-        success: false,
-        error: {
-          code: "INVALID_TOKEN",
-          message: "Token inválido.",
-        },
-      });
-    }
-
-    req.usuario = {
-      id: Number(payload.sub),
-      papeis: payload.papeis,
-    };
-
-    if (!Number.isSafeInteger(req.usuario.id) || req.usuario.id <= 0) {
-      return res.status(401).json({
-        success: false,
-        error: {
-          code: "INVALID_TOKEN",
-          message: "Token inválido.",
-        },
-      });
-    }
-
-    next();
   } catch (error) {
     return res.status(401).json({
       success: false,
@@ -59,6 +30,62 @@ function autenticar(req, res, next) {
         message: "Token inválido ou expirado.",
       },
     });
+  }
+
+  const usuarioId = Number(payload.sub);
+
+  if (
+    typeof payload.sub !== "string" ||
+    !Number.isSafeInteger(usuarioId) ||
+    usuarioId <= 0
+  ) {
+    return res.status(401).json({
+      success: false,
+      error: {
+        code: "INVALID_TOKEN",
+        message: "Token inválido.",
+      },
+    });
+  }
+
+  try {
+    const resultado = await pool.query(
+      `SELECT
+         u.usrid,
+         COALESCE(
+           array_agg(r.rolenam)
+             FILTER (WHERE r.rolenam IS NOT NULL),
+           ARRAY[]::varchar[]
+         ) AS papeis
+       FROM "USUARIOS" u
+       LEFT JOIN "USUARIO_ROLES" ur
+         ON ur.usrid = u.usrid
+       LEFT JOIN "ROLES" r
+         ON r.roleid = ur.roleid
+       WHERE u.usrid = $1
+         AND u.usract = TRUE
+       GROUP BY u.usrid`,
+      [usuarioId]
+    );
+
+    if (resultado.rows.length === 0) {
+      return res.status(401).json({
+        success: false,
+        error: {
+          code: "INACTIVE_USER",
+          message: "Usuário inexistente ou desativado.",
+        },
+      });
+    }
+
+    req.usuario = {
+      id: resultado.rows[0].usrid,
+      papeis: resultado.rows[0].papeis,
+    };
+
+    return next();
+  } catch (error) {
+    return next(error);
   }
 }
 
