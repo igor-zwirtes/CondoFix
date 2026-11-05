@@ -1139,4 +1139,196 @@ router.patch(
   }
 );
 
+router.post(
+  "/:id/faturamento",
+  autenticar,
+  exigirPapel("PRESTADOR_SERVICO"),
+  async (req, res, next) => {
+    const id = Number(req.params.id);
+    const { valor, descricao } = req.body;
+    const usuarioId = req.usuario.id;
+
+    // Validar ID da solicitação.
+    if (!Number.isSafeInteger(id) || id <= 0) {
+      return res.status(400).json({
+        success: false,
+        error: {
+          code: "INVALID_REQUEST_ID",
+          message: "O ID da solicitação deve ser um inteiro positivo.",
+        },
+      });
+    }
+
+    // Validar valor.
+    if (
+      typeof valor !== "number" ||
+      !Number.isFinite(valor) ||
+      valor <= 0 ||
+      !Number.isFinite(Math.round(valor * 100) / 100) ||
+      Math.round(valor * 100) / 100 !== valor
+    ) {
+      return res.status(400).json({
+        success: false,
+        error: {
+          code: "INVALID_BILLING_VALUE",
+          message: "O valor deve ser numérico, positivo e ter no máximo duas casas decimais.",
+        },
+      });
+    }
+
+    // Validar descrição.
+    if (
+      typeof descricao !== "string" ||
+      !descricao.trim()
+    ) {
+      return res.status(400).json({
+        success: false,
+        error: {
+          code: "INVALID_BILLING_DESCRIPTION",
+          message: "A descrição do faturamento é obrigatória.",
+        },
+      });
+    }
+
+    const client = await pool.connect();
+
+    try {
+      await client.query("BEGIN");
+
+      // Bloquear a solicitação para evitar operações concorrentes.
+      const resultado = await client.query(
+        `SELECT s.soid, s.pvdid, s.stsid, st.stsnom
+         FROM "SOLICITACOES" s
+         JOIN "STATUS_SOLICITACAO" st
+           ON st.stsid = s.stsid
+         WHERE s.soid = $1
+         FOR UPDATE OF s`,
+        [id]
+      );
+
+      if (resultado.rows.length === 0) {
+        await client.query("ROLLBACK");
+        return res.status(404).json({
+          success: false,
+          error: {
+            code: "REQUEST_NOT_FOUND",
+            message: "Solicitação não encontrada.",
+          },
+        });
+      }
+
+      const solicitacao = resultado.rows[0];
+
+      // Verificar se o prestador está atribuído à solicitação.
+      if (solicitacao.pvdid !== usuarioId) {
+        await client.query("ROLLBACK");
+        return res.status(404).json({
+          success: false,
+          error: {
+            code: "REQUEST_NOT_FOUND",
+            message: "Solicitação não encontrada.",
+          },
+        });
+      }
+
+      // Somente solicitações aceitas podem ser faturadas.
+      if (solicitacao.stsnom !== "Aceita") {
+        await client.query("ROLLBACK");
+        return res.status(409).json({
+          success: false,
+          error: {
+            code: "INVALID_STATUS_TRANSITION",
+            message: "Somente solicitações aceitas podem ser faturadas.",
+          },
+        });
+      }
+
+      // Buscar o status Faturada.
+      const statusResultado = await client.query(
+        `SELECT stsid
+         FROM "STATUS_SOLICITACAO"
+         WHERE stsnom = 'Faturada'`
+      );
+
+      if (statusResultado.rows.length === 0) {
+        throw new Error('Status "Faturada" não cadastrado.');
+      }
+
+      // Buscar o tipo de alteração Status.
+      const tipoResultado = await client.query(
+        `SELECT typid
+         FROM "TIPOS_ALTERACAO"
+         WHERE typnom = 'Status'`
+      );
+
+      if (tipoResultado.rows.length === 0) {
+        throw new Error('Tipo de alteração "Status" não cadastrado.');
+      }
+
+      // Registrar o faturamento.
+      const faturamento = await client.query(
+        `INSERT INTO "FATURAMENTOS"
+           (soid, fatval, fatdcp, usrid)
+         VALUES ($1, $2, $3, $4)
+         RETURNING soid, fatval, fatdcp, fatdat, usrid`,
+        [id, valor, descricao.trim(), usuarioId]
+      );
+
+      // Alterar o status para Faturada.
+      await client.query(
+        `UPDATE "SOLICITACOES"
+         SET stsid = $1
+         WHERE soid = $2`,
+        [statusResultado.rows[0].stsid, id]
+      );
+
+      // Registrar a mudança no histórico.
+      await client.query(
+        `INSERT INTO "ALTERACOES"
+           (soid, usrid, typid, altdcp)
+         VALUES ($1, $2, $3, $4)`,
+        [
+          id,
+          usuarioId,
+          tipoResultado.rows[0].typid,
+          `Status alterado de Aceita para Faturada. Faturamento registrado no valor de R$ ${valor.toFixed(2)}.`,
+        ]
+      );
+
+      await client.query("COMMIT");
+
+      return res.status(201).json({
+        success: true,
+        message: "Faturamento registrado com sucesso.",
+        data: {
+          solicitacaoId: id,
+          status: "Faturada",
+          faturamento: {
+            valor: Number(faturamento.rows[0].fatval),
+            descricao: faturamento.rows[0].fatdcp,
+            data: faturamento.rows[0].fatdat,
+            prestadorId: faturamento.rows[0].usrid,
+          },
+        },
+      });
+    } catch (error) {
+      await client.query("ROLLBACK").catch(() => {});
+
+      if (error.code === "23505") {
+        return res.status(409).json({
+          success: false,
+          error: {
+            code: "BILLING_ALREADY_EXISTS",
+            message: "Esta solicitação já possui um faturamento.",
+          },
+        });
+      }
+
+      return next(error);
+    } finally {
+      client.release();
+    }
+  }
+);
+
 module.exports = router;
