@@ -1331,4 +1331,138 @@ router.post(
   }
 );
 
+router.patch(
+  "/:id/finalizar",
+  autenticar,
+  exigirPapel("ADMIN", "ADMINISTRADOR"),
+  async (req, res, next) => {
+    const id = Number(req.params.id);
+
+    if (!Number.isSafeInteger(id) || id <= 0) {
+      return res.status(400).json({
+        success: false,
+        error: {
+          code: "INVALID_REQUEST_ID",
+          message: "O ID da solicitação deve ser um inteiro positivo.",
+        },
+      });
+    }
+
+    const client = await pool.connect();
+
+    try {
+      await client.query("BEGIN");
+
+      const resultado = await client.query(
+        `SELECT
+           s.soid,
+           s.stsid,
+           st.stsnom,
+           f.soid AS faturamento_id
+         FROM "SOLICITACOES" s
+         JOIN "STATUS_SOLICITACAO" st
+           ON st.stsid = s.stsid
+         LEFT JOIN "FATURAMENTOS" f
+           ON f.soid = s.soid
+         WHERE s.soid = $1
+         FOR UPDATE OF s`,
+        [id]
+      );
+
+      if (resultado.rows.length === 0) {
+        await client.query("ROLLBACK");
+
+        return res.status(404).json({
+          success: false,
+          error: {
+            code: "REQUEST_NOT_FOUND",
+            message: "Solicitação não encontrada.",
+          },
+        });
+      }
+
+      const solicitacao = resultado.rows[0];
+
+      if (solicitacao.stsnom !== "Faturada") {
+        await client.query("ROLLBACK");
+
+        return res.status(409).json({
+          success: false,
+          error: {
+            code: "INVALID_STATUS_TRANSITION",
+            message: "Somente solicitações faturadas podem ser finalizadas.",
+          },
+        });
+      }
+
+      if (solicitacao.faturamento_id === null) {
+        await client.query("ROLLBACK");
+
+        return res.status(409).json({
+          success: false,
+          error: {
+            code: "BILLING_NOT_FOUND",
+            message: "Não existe faturamento registrado para esta solicitação.",
+          },
+        });
+      }
+
+      const statusResultado = await client.query(
+        `SELECT stsid
+         FROM "STATUS_SOLICITACAO"
+         WHERE stsnom = 'Finalizada'`
+      );
+
+      if (statusResultado.rows.length === 0) {
+        throw new Error('Status "Finalizada" não cadastrado.');
+      }
+
+      const tipoResultado = await client.query(
+        `SELECT typid
+         FROM "TIPOS_ALTERACAO"
+         WHERE typnom = 'Status'`
+      );
+
+      if (tipoResultado.rows.length === 0) {
+        throw new Error('Tipo de alteração "Status" não cadastrado.');
+      }
+
+      await client.query(
+        `UPDATE "SOLICITACOES"
+         SET stsid = $1
+         WHERE soid = $2`,
+        [statusResultado.rows[0].stsid, id]
+      );
+
+      await client.query(
+        `INSERT INTO "ALTERACOES"
+           (soid, usrid, typid, altdcp)
+         VALUES ($1, $2, $3, $4)`,
+        [
+          id,
+          req.usuario.id,
+          tipoResultado.rows[0].typid,
+          "Solicitação finalizada após conferência do faturamento. Status alterado de Faturada para Finalizada.",
+        ]
+      );
+
+      await client.query("COMMIT");
+
+      return res.status(200).json({
+        success: true,
+        message: "Solicitação finalizada com sucesso.",
+        data: {
+          solicitacaoId: id,
+          status: "Finalizada",
+        },
+      });
+    } catch (error) {
+      await client.query("ROLLBACK").catch(() => {});
+      return next(error);
+    } finally {
+      client.release();
+    }
+  }
+);
+
 module.exports = router;
