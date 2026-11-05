@@ -209,9 +209,33 @@ WHERE
           AND s.sotit = dados.titulo
     );
 
+-- =====================================================
+-- 8. FATURAMENTOS
+-- =====================================================
+
+INSERT INTO "FATURAMENTOS"
+    (soid, fatval, fatdcp, fatdat, usrid)
+SELECT
+    s.soid,
+    250.00,
+    'Reparo de vazamento na conexao da pia da cozinha.',
+    CURRENT_TIMESTAMP,
+    prestador.usrid
+FROM "SOLICITACOES" s
+JOIN "USUARIOS" solicitante
+    ON solicitante.usrid = s.usrid
+JOIN "USUARIOS" prestador
+    ON prestador.usreml = 'prestador@condofix.local'
+JOIN "STATUS_SOLICITACAO" st
+    ON st.stsid = s.stsid
+WHERE solicitante.usreml = 'morador@condofix.local'
+  AND s.sotit = 'Vazamento na pia'
+  AND st.stsnom = 'Finalizada'
+  AND s.pvdid = prestador.usrid
+ON CONFLICT (soid) DO NOTHING;
 
 -- =====================================================
--- 8. HISTORICO DE ALTERACOES
+-- 9. HISTORICO DE ALTERACOES
 -- =====================================================
 
 INSERT INTO "ALTERACOES" (soid, usrid, typid, altdcp)
@@ -269,7 +293,7 @@ WHERE NOT EXISTS (
 
 
 -- =====================================================
--- 9. AVALIACOES
+-- 10. AVALIACOES
 -- =====================================================
 
 INSERT INTO "AVALIACOES" (soid, evascr, evanot)

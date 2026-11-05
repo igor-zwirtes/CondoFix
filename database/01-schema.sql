@@ -319,3 +319,31 @@ CREATE TABLE "AVALIACOES" (
         REFERENCES "SOLICITACOES" (soid)
         ON DELETE CASCADE
 );
+
+-- =====================================================
+-- 7. FATURAMENTOS
+-- =====================================================
+
+CREATE TABLE "FATURAMENTOS" (
+    soid INTEGER PRIMARY KEY,
+    fatval NUMERIC(10, 2) NOT NULL,
+    fatdcp TEXT NOT NULL,
+    fatdat TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    usrid INTEGER NOT NULL,
+
+    CONSTRAINT fk_faturamento_solicitacao
+        FOREIGN KEY (soid)
+        REFERENCES "SOLICITACOES"(soid)
+        ON DELETE RESTRICT,
+
+    CONSTRAINT fk_faturamento_usuario
+        FOREIGN KEY (usrid)
+        REFERENCES "USUARIOS"(usrid)
+        ON DELETE RESTRICT,
+
+    CONSTRAINT chk_faturamento_valor
+        CHECK (fatval > 0),
+
+    CONSTRAINT chk_faturamento_descricao
+        CHECK (LENGTH(TRIM(fatdcp)) > 0)
+);
