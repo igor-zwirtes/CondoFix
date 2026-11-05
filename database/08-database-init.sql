@@ -150,7 +150,7 @@ FROM (
          '101', '1', 'A',
          'prestador@condofix.local',
          'Vazamento de agua na conexao da pia da cozinha.',
-         'Hidraulica', 'Alta', 'Finalizada'),
+         'Hidraulica', 'Alta', 'Concluida'),
 
         ('morador@condofix.local',
          'Lampada queimada',
@@ -308,7 +308,7 @@ JOIN "STATUS_SOLICITACAO" st
     ON st.stsid = s.stsid
 WHERE u.usreml = 'morador@condofix.local'
   AND s.sotit = 'Vazamento na pia'
-  AND st.stsnom IN ('Concluida', 'Finalizada')
+  AND st.stsnom = 'Concluida'
 ON CONFLICT (soid) DO NOTHING;
 
 
