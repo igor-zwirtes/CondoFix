@@ -1,12 +1,38 @@
-import { BrowserRouter, Routes, Route } from 'react-router-dom';
-import SignIn from '../pages/SignIn';
+import React from 'react';
+import { Routes, Route } from 'react-router-dom';
 
-export default function RoutesApp() {
+import SignIn from '../pages/SignIn';
+import Painel from '../pages/Painel';
+import Admin from '../pages/ADMIN';
+import Administrador from '../pages/ADMINISTRADOR';
+import Usuario from '../pages/USUARIO';
+import PrestadorServico from '../pages/PRESTADOR_SERVICO';
+import PrivateRoute from './PrivateRoute';
+
+export default function AppRoutes() {
   return (
-    <BrowserRouter>
-      <Routes>
-        <Route path="/" element={<SignIn />} />
-      </Routes>
-    </BrowserRouter>
+    <Routes>
+      <Route path="/" element={<SignIn />} />
+
+      <Route element={<PrivateRoute />}>
+        <Route path="/painel" element={<Painel />} />
+      </Route>
+
+      <Route element={<PrivateRoute allowedRoles={['ADMIN']} />}>
+        <Route path="/admin" element={<Admin />} />
+      </Route>
+
+      <Route element={<PrivateRoute allowedRoles={['ADMINISTRADOR']} />}>
+        <Route path="/administrador" element={<Administrador />} />
+      </Route>
+
+      <Route element={<PrivateRoute allowedRoles={['USUARIO']} />}>
+        <Route path="/usuario" element={<Usuario />} />
+      </Route>
+
+      <Route element={<PrivateRoute allowedRoles={['PRESTADOR_SERVICO']} />}>
+        <Route path="/prestador_servico" element={<PrestadorServico />} />
+      </Route>
+    </Routes>
   );
 }
