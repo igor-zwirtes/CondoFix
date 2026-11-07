@@ -87,6 +87,59 @@ router.get(
   }
 );
 
+// Retorna os dados necessários para criar uma solicitação.
+router.get(
+  "/opcoes",
+  autenticar,
+  exigirPapel("USUARIO"),
+  async (req, res, next) => {
+    try {
+      // Buscar o apartamento vinculado ao morador autenticado.
+      const apartamento = await pool.query(
+        `SELECT
+           a.aptid AS id,
+           a.aptnum AS numero,
+           a.aptflr AS andar,
+           a.aptblk AS bloco
+         FROM "MORADORES" m
+         JOIN "APARTAMENTOS" a
+           ON a.aptid = m.aptid
+         WHERE m.usrid = $1`,
+        [req.usuario.id]
+      );
+
+      if (apartamento.rows.length === 0) {
+        return res.status(404).json({
+          success: false,
+          error: {
+            code: "APARTMENT_NOT_FOUND",
+            message: "Apartamento do morador não encontrado.",
+          },
+        });
+      }
+
+      // Buscar categorias cadastradas.
+      const categorias = await pool.query(
+        `SELECT
+           catid AS id,
+           catnom AS nome
+         FROM "CATEGORIAS_SOLICITACAO"
+         ORDER BY catnom`
+      );
+
+      return res.status(200).json({
+        success: true,
+        data: {
+          apartamento: apartamento.rows[0],
+          categorias: categorias.rows,
+        },
+      });
+    } catch (error) {
+      return next(error);
+    }
+  }
+);
+
 router.get(
   "/:id",
   autenticar,
