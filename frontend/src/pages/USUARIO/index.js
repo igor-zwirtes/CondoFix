@@ -100,6 +100,12 @@ export default function PainelMorador() {
 
       <h2>Criar solicitação de manutenção</h2>
 
+      <button
+        onClick={() => navigate('/solicitacoes')}
+        style={{ marginBottom: '20px' }}
+      >
+        Minhas solicitações
+      </button>
 
       <form
         onSubmit={handleCriarSolicitacao}
