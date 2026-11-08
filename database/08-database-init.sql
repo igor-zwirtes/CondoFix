@@ -265,7 +265,7 @@ FROM (
          'Vazamento na pia',
          'sindico@condofix.local',
          'Prestador',
-         'Prestador designado para realizar o servico.',
+         'Prestador Carlos Souza atribuído à solicitação.',
          TIMESTAMP '2026-01-01 10:10:00'),
 
         ('morador@condofix.local',
@@ -286,7 +286,7 @@ FROM (
          'Lampada queimada',
          'sindico@condofix.local',
          'Prestador',
-         'Prestador designado para realizar o servico.',
+         'Prestador Carlos Souza atribuído à solicitação.',
          TIMESTAMP '2026-01-02 10:05:00'),
 
         ('morador@condofix.local',
@@ -308,7 +308,36 @@ FROM (
          'sindico@condofix.local',
          'Status',
          'Status alterado para Cancelada.',
-         TIMESTAMP '2026-01-03 10:05:00')
+         TIMESTAMP '2026-01-03 10:05:00'),
+
+        ('maria@condofix.local',
+         'Tomada sem energia',
+         'maria@condofix.local',
+         'Criacao',
+         'Solicitacao criada pela moradora Maria Oliveira.',
+         TIMESTAMP '2026-11-08 09:00:00'),
+
+        ('maria@condofix.local',
+         'Tomada sem energia',
+         'sindico@condofix.local',
+         'Prioridade',
+         'Prioridade alterada para Urgente.',
+         TIMESTAMP '2026-11-08 09:15:00'),
+
+        ('maria@condofix.local',
+         'Tomada sem energia',
+         'sindico@condofix.local',
+         'Prestador',
+         'Prestador Ana Costa atribuído à solicitação.',
+         TIMESTAMP '2026-11-08 09:30:00'),
+
+        ('maria@condofix.local',
+         'Porta do quarto com defeito',
+         'maria@condofix.local',
+         'Criacao',
+         'Solicitacao criada pela moradora Maria Oliveira.',
+         TIMESTAMP '2026-11-08 10:00:00')
+
 ) AS dados(
     email_solicitante,
     titulo,
