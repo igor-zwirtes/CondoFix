@@ -268,7 +268,37 @@ FROM (
          'Vazamento na pia',
          'prestador@condofix.local',
          'Conclusao',
-         'Reparo realizado com sucesso.')
+         'Reparo realizado com sucesso.'),
+
+        ('morador@condofix.local',
+         'Lampada queimada',
+         'morador@condofix.local',
+         'Criacao',
+         'Solicitacao criada pelo morador.'),
+
+        ('morador@condofix.local',
+         'Lampada queimada',
+         'sindico@condofix.local',
+         'Prestador',
+         'Prestador designado para realizar o servico.'),
+
+        ('morador@condofix.local',
+         'Lampada queimada',
+         'prestador@condofix.local',
+         'Status',
+         'Status alterado para Em andamento.'),
+
+        ('morador@condofix.local',
+         'Torneira com vazamento',
+         'morador@condofix.local',
+         'Criacao',
+         'Solicitacao criada pelo morador.'),
+
+        ('morador@condofix.local',
+         'Torneira com vazamento',
+         'sindico@condofix.local',
+         'Status',
+         'Status alterado para Cancelada.')
 ) AS dados(
     email_solicitante, titulo, email_responsavel,
     tipo, descricao

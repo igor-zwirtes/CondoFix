@@ -10,6 +10,10 @@ export default function SolicitacaoDetalhes() {
   const [carregando, setCarregando] = useState(true);
   const [erro, setErro] = useState('');
 
+  const [historico, setHistorico] = useState([]);
+  const [carregandoHistorico, setCarregandoHistorico] = useState(true);
+  const [erroHistorico, setErroHistorico] = useState('');
+
   // Carregar os detalhes da solicitação.
   useEffect(() => {
     async function carregarSolicitacao() {
@@ -30,6 +34,28 @@ export default function SolicitacaoDetalhes() {
     carregarSolicitacao();
   }, [id]);
 
+  // Carregar o histórico da solicitação.
+  useEffect(() => {
+  async function carregarHistorico() {
+    try {
+      const resposta = await api.get(
+        `/api/solicitacoes/${id}/historico`
+      );
+
+      setHistorico(resposta.data.data);
+    } catch (error) {
+      setErroHistorico(
+          error.response?.data?.error?.message ||
+          'Não foi possível carregar o histórico.'
+      );
+      } finally {
+        setCarregandoHistorico(false);
+      }
+  }
+
+    carregarHistorico();
+    }, [id]);
+
   // Formatar datas.
   function formatarData(data) {
     if (!data) {
@@ -37,6 +63,14 @@ export default function SolicitacaoDetalhes() {
     }
 
     return new Date(data).toLocaleDateString('pt-BR');
+  }
+
+  function formatarDataHora(data) {
+    if (!data) {
+      return 'Data não informada';
+    }
+
+    return new Date(data).toLocaleString('pt-BR');
   }
 
   if (carregando) {
@@ -128,6 +162,65 @@ export default function SolicitacaoDetalhes() {
           {formatarData(solicitacao.data_fechamento)}
         </p>
       </div>
+
+      
+      <div style={{ marginTop: '35px' }}>
+        <h2>Histórico de alterações</h2>
+
+        {carregandoHistorico && (
+          <p>Carregando histórico...</p>
+        )}
+
+        {erroHistorico && (
+          <p style={{ color: 'red' }}>
+            {erroHistorico}
+          </p>
+        )}
+
+        {!carregandoHistorico &&
+          !erroHistorico &&
+          historico.length === 0 && (
+            <p>Nenhuma alteração registrada.</p>
+          )}
+
+        {!carregandoHistorico &&
+          historico.length > 0 && (
+            <div
+              style={{
+                display: 'flex',
+                flexDirection: 'column',
+                gap: '15px',
+                marginTop: '20px'
+              }}
+            >
+              {historico.map((alteracao) => (
+                <div
+                  key={alteracao.id}
+                  style={{
+                    border: '1px solid #cccccc',
+                    borderRadius: '8px',
+                    padding: '20px'
+                  }}
+                >
+                  <h3>{alteracao.tipo}</h3>
+
+                  <p>{alteracao.descricao}</p>
+
+                  <p>
+                    <strong>Responsável:</strong>{' '}
+                    {alteracao.usuario || 'Não informado'}
+                  </p>
+
+                  <p>
+                    <strong>Data:</strong>{' '}
+                    {formatarDataHora(alteracao.data)}
+                  </p>
+                </div>
+              ))}
+            </div>
+          )}
+      </div>
+
 
       <button
         onClick={() => navigate('/solicitacoes')}
