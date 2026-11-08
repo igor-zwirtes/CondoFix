@@ -9,6 +9,7 @@ import Usuario from '../pages/USUARIO';
 import PrestadorServico from '../pages/PRESTADOR_SERVICO';
 import PrivateRoute from './PrivateRoute';
 import Solicitacoes from '../pages/Solicitacoes';
+import SolicitacaoDetalhes from '../pages/SolicitacaoDetalhes';
 
 export default function AppRoutes() {
   return (
@@ -18,6 +19,7 @@ export default function AppRoutes() {
       <Route element={<PrivateRoute />}>
         <Route path="/painel" element={<Painel />} />
         <Route path="/solicitacoes" element={<Solicitacoes />} />
+        <Route path="/solicitacoes/:id" element={<SolicitacaoDetalhes />}/>
       </Route>
 
       <Route element={<PrivateRoute allowedRoles={['ADMIN']} />}>

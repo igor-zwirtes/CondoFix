@@ -189,8 +189,30 @@ router.get(
       }
 
       let sql = `
-        SELECT s.soid, s.sotit, s.sodcp, s.soopn, s.socls
+        SELECT
+          s.soid AS id,
+          s.sotit AS titulo,
+          s.sodcp AS descricao,
+          s.soopn AS data_abertura,
+          s.socls AS data_fechamento,
+          st.stsnom AS status,
+          pr.prinom AS prioridade,
+          c.catnom AS categoria,
+          s.usrid AS solicitante_id,
+          solicitante.usrnam AS solicitante,
+          s.pvdid AS prestador_id,
+          prestador.usrnam AS prestador
         FROM "SOLICITACOES" s
+        JOIN "STATUS_SOLICITACAO" st
+          ON st.stsid = s.stsid
+        JOIN "PRIORIDADES_SOLICITACAO" pr
+          ON pr.priid = s.priid
+        JOIN "CATEGORIAS_SOLICITACAO" c
+          ON c.catid = s.catid
+        JOIN "USUARIOS" solicitante
+          ON solicitante.usrid = s.usrid
+        LEFT JOIN "USUARIOS" prestador
+          ON prestador.usrid = s.pvdid
         WHERE s.soid = $1
       `;
 
