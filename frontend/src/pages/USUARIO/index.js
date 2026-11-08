@@ -5,6 +5,16 @@ import api from '../../services/api';
 export default function PainelMorador() {
   const navigate = useNavigate();
 
+  const dadosUsuario = JSON.parse(
+    localStorage.getItem('@CondoFix:user') || '{}'
+  );
+
+  const nomeUsuario =
+    dadosUsuario.nome ||
+    dadosUsuario.usrnam ||
+    dadosUsuario.name ||
+    'Usuário';
+
   const [apartamento, setApartamento] = useState(null);
   const [categorias, setCategorias] = useState([]);
 
@@ -98,7 +108,7 @@ export default function PainelMorador() {
 
       <h1>CondoFix</h1>
 
-      <h2>Criar solicitação de manutenção</h2>
+      <h2>Bem-vindo, {nomeUsuario}!</h2>
 
       <button
         onClick={() => navigate('/solicitacoes')}
@@ -106,6 +116,8 @@ export default function PainelMorador() {
       >
         Minhas solicitações
       </button>
+
+      <h2>Criar solicitação de manutenção</h2>
 
       <form
         onSubmit={handleCriarSolicitacao}

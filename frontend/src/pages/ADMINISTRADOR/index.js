@@ -3,6 +3,16 @@ import { useNavigate } from 'react-router-dom';
 
 export default function PainelSindico() {
   const navigate = useNavigate();
+  
+  const dadosUsuario = JSON.parse(
+    localStorage.getItem('@CondoFix:user') || '{}'
+  );
+
+  const nomeUsuario =
+    dadosUsuario.nome ||
+    dadosUsuario.usrnam ||
+    dadosUsuario.name ||
+    'Usuário';
 
   function handleLogout() {
     localStorage.clear();
@@ -12,6 +22,13 @@ export default function PainelSindico() {
   return (
     <div style={{ padding: '40px' }}>
       <h1>Administrador</h1>
+
+      <h2>Bem-vindo, {nomeUsuario}!</h2>
+
+      <button onClick={() => navigate('/solicitacoes')}>
+        Ver solicitações
+      </button>
+
       <button onClick={handleLogout}>Sair</button>
     </div>
   );
