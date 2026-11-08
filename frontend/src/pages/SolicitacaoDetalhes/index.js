@@ -28,6 +28,13 @@ export default function SolicitacaoDetalhes() {
   const [sucessoPrioridade, setSucessoPrioridade] = useState('');
 
   const [editandoPrioridade, setEditandoPrioridade] = useState(false);
+  const [prestadores, setPrestadores] = useState([]);
+  const [novoPrestador, setNovoPrestador] = useState('');
+  const [editandoPrestador, setEditandoPrestador] = useState(false);
+  const [carregandoPrestadores, setCarregandoPrestadores] = useState(false);
+  const [salvandoPrestador, setSalvandoPrestador] = useState(false);
+  const [erroPrestador, setErroPrestador] = useState('');
+  const [sucessoPrestador, setSucessoPrestador] = useState('');
 
   // Carregar os detalhes da solicitação.
   useEffect(() => {
@@ -71,6 +78,24 @@ export default function SolicitacaoDetalhes() {
     carregarHistorico();
     }, [id]);
 
+async function carregarPrestadores() {
+  try {
+    setCarregandoPrestadores(true);
+    setErroPrestador('');
+
+    const resposta = await api.get('/api/solicitacoes/prestadores');
+
+    setPrestadores(resposta.data.data);
+  } catch (error) {
+    setErroPrestador(
+      error.response?.data?.error?.message ||
+      'Não foi possível carregar os prestadores.'
+    );
+  } finally {
+    setCarregandoPrestadores(false);
+  }
+}
+
 async function alterarPrioridade() {
   setErroPrioridade('');
   setSucessoPrioridade('');
@@ -105,6 +130,44 @@ async function alterarPrioridade() {
     );
   } finally {
     setSalvandoPrioridade(false);
+  }
+}
+
+async function atribuirPrestador() {
+  setErroPrestador('');
+  setSucessoPrestador('');
+
+  if (!novoPrestador) {
+    setErroPrestador('Selecione um prestador.');
+    return;
+  }
+
+  try {
+    setSalvandoPrestador(true);
+
+    await api.patch(`/api/solicitacoes/${id}/prestador`, {
+      prestadorId: Number(novoPrestador)
+    });
+
+    const resposta = await api.get(`/api/solicitacoes/${id}`);
+    setSolicitacao(resposta.data.data);
+
+    const respostaHistorico = await api.get(
+      `/api/solicitacoes/${id}/historico`
+    );
+    setHistorico(respostaHistorico.data.data);
+
+    setEditandoPrestador(false);
+    setNovoPrestador('');
+
+    setSucessoPrestador('Prestador atribuído com sucesso!');
+  } catch (error) {
+    setErroPrestador(
+      error.response?.data?.error?.message ||
+      'Não foi possível atribuir o prestador.'
+    );
+  } finally {
+    setSalvandoPrestador(false);
   }
 }
 
@@ -241,10 +304,81 @@ async function alterarPrioridade() {
           <strong>Solicitante:</strong> {solicitacao.solicitante}
         </p>
 
-        <p>
-          <strong>Prestador responsável:</strong>{' '}
-          {solicitacao.prestador || 'Ainda não atribuído'}
-        </p>
+        <div style={{ marginTop: '15px', marginBottom: '15px' }}>
+            <p>
+                <strong>Prestador responsável:</strong>{' '}
+                {solicitacao.prestador || 'Ainda não atribuído'}
+            </p>
+
+            {ehAdministrador &&
+                solicitacao.status !== 'Finalizada' &&
+                !editandoPrestador && (
+                <button
+                    onClick={() => {
+                        setEditandoPrestador(true);
+                        setNovoPrestador('');
+                        setErroPrestador('');
+                        setSucessoPrestador('');
+                        carregarPrestadores();
+                    }}
+                >
+                    {solicitacao.prestador
+                        ? 'Alterar prestador'
+                        : 'Atribuir prestador'}
+                </button>
+            )}
+
+            {ehAdministrador && editandoPrestador && (
+                <div style={{ marginTop: '10px' }}>
+                {carregandoPrestadores ? (
+                    <p>Carregando prestadores...</p>
+                ) : (
+                    <>
+                    <select
+                        value={novoPrestador}
+                        onChange={(e) => setNovoPrestador(e.target.value)}
+                    >
+                        <option value="">Selecione um prestador</option>
+
+                        {prestadores.map((prestador) => (
+                        <option key={prestador.id} value={prestador.id}>
+                            {prestador.nome}
+                        </option>
+                        ))}
+                    </select>
+
+                    <button
+                        onClick={atribuirPrestador}
+                        disabled={salvandoPrestador || !novoPrestador}
+                        style={{ marginLeft: '10px' }}
+                    >
+                        {salvandoPrestador ? 'Atribuindo...' : 'Confirmar atribuição'}
+                    </button>
+
+                    <button
+                        onClick={() => {
+                        setEditandoPrestador(false);
+                        setNovoPrestador('');
+                        setErroPrestador('');
+                        }}
+                        disabled={salvandoPrestador}
+                        style={{ marginLeft: '10px' }}
+                    >
+                        Cancelar
+                    </button>
+                    </>
+                )}
+                </div>
+            )}
+
+            {erroPrestador && (
+                <p style={{ color: 'red' }}>{erroPrestador}</p>
+            )}
+
+            {sucessoPrestador && (
+                <p style={{ color: 'green' }}>{sucessoPrestador}</p>
+            )}
+            </div>
 
         <hr />
 
