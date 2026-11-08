@@ -1,3 +1,4 @@
+
 import React, { useEffect, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import api from '../../services/api';
@@ -36,12 +37,26 @@ export default function SolicitacaoDetalhes() {
   const [erroPrestador, setErroPrestador] = useState('');
   const [sucessoPrestador, setSucessoPrestador] = useState('');
 
+  // Identificar solicitações que não permitem mais alterações administrativas.
+  const solicitacaoEncerrada = [
+    'Concluida',
+    'Cancelada',
+    'Finalizada'
+  ].includes(solicitacao?.status);
+
+  // Obter o ID do prestador atualmente atribuído.
+  // Aceita os nomes mais comuns usados na resposta da API.
+  const prestadorAtualId =
+    solicitacao?.prestadorId ??
+    solicitacao?.pvdid ??
+    solicitacao?.prestador_id ??
+    null;
+
   // Carregar os detalhes da solicitação.
   useEffect(() => {
     async function carregarSolicitacao() {
       try {
         const resposta = await api.get(`/api/solicitacoes/${id}`);
-
         setSolicitacao(resposta.data.data);
       } catch (error) {
         setErro(
@@ -58,118 +73,155 @@ export default function SolicitacaoDetalhes() {
 
   // Carregar o histórico da solicitação.
   useEffect(() => {
-  async function carregarHistorico() {
-    try {
-      const resposta = await api.get(
-        `/api/solicitacoes/${id}/historico`
-      );
+    async function carregarHistorico() {
+      try {
+        const resposta = await api.get(
+          `/api/solicitacoes/${id}/historico`
+        );
 
-      setHistorico(resposta.data.data);
-    } catch (error) {
-      setErroHistorico(
+        setHistorico(resposta.data.data);
+      } catch (error) {
+        setErroHistorico(
           error.response?.data?.error?.message ||
           'Não foi possível carregar o histórico.'
-      );
+        );
       } finally {
         setCarregandoHistorico(false);
       }
-  }
+    }
 
     carregarHistorico();
-    }, [id]);
+  }, [id]);
 
-async function carregarPrestadores() {
-  try {
-    setCarregandoPrestadores(true);
+  // Carregar os prestadores disponíveis.
+  async function carregarPrestadores() {
+    try {
+      setCarregandoPrestadores(true);
+      setErroPrestador('');
+
+      const resposta = await api.get('/api/solicitacoes/prestadores');
+      setPrestadores(resposta.data.data);
+    } catch (error) {
+      setErroPrestador(
+        error.response?.data?.error?.message ||
+        'Não foi possível carregar os prestadores.'
+      );
+    } finally {
+      setCarregandoPrestadores(false);
+    }
+  }
+
+  // Alterar a prioridade.
+  async function alterarPrioridade() {
+    setErroPrioridade('');
+    setSucessoPrioridade('');
+
+    if (solicitacaoEncerrada) {
+      return;
+    }
+
+    if (!novaPrioridade || novaPrioridade === solicitacao.prioridade) {
+      return;
+    }
+
+    try {
+      setSalvandoPrioridade(true);
+
+      await api.patch(`/api/solicitacoes/${id}/prioridade`, {
+        prioridade: novaPrioridade
+      });
+
+      const resposta = await api.get(`/api/solicitacoes/${id}`);
+      setSolicitacao(resposta.data.data);
+
+      const respostaHistorico = await api.get(
+        `/api/solicitacoes/${id}/historico`
+      );
+      setHistorico(respostaHistorico.data.data);
+
+      setEditandoPrioridade(false);
+      setNovaPrioridade('');
+
+      setSucessoPrioridade('Prioridade alterada com sucesso!');
+    } catch (error) {
+      setErroPrioridade(
+        error.response?.data?.error?.message ||
+        'Não foi possível alterar a prioridade.'
+      );
+    } finally {
+      setSalvandoPrioridade(false);
+    }
+  }
+
+  // Atribuir ou trocar o prestador.
+  async function atribuirPrestador() {
     setErroPrestador('');
+    setSucessoPrestador('');
 
-    const resposta = await api.get('/api/solicitacoes/prestadores');
+    if (solicitacaoEncerrada) {
+      return;
+    }
 
-    setPrestadores(resposta.data.data);
-  } catch (error) {
-    setErroPrestador(
-      error.response?.data?.error?.message ||
-      'Não foi possível carregar os prestadores.'
-    );
-  } finally {
-    setCarregandoPrestadores(false);
-  }
-}
+    if (!novoPrestador) {
+      setErroPrestador('Selecione um prestador.');
+      return;
+    }
 
-async function alterarPrioridade() {
-  setErroPrioridade('');
-  setSucessoPrioridade('');
+    // Impedir a atribuição do mesmo prestador.
+    if (
+      prestadorAtualId !== null &&
+      String(novoPrestador) === String(prestadorAtualId)
+    ) {
+      setErroPrestador(
+        'Este prestador já está atribuído à solicitação.'
+      );
+      return;
+    }
 
-  if (!novaPrioridade || novaPrioridade === solicitacao.prioridade) {
-    return;
-  }
+    // Verificar se já existe um prestador atribuído.
+    const jaPossuiPrestador = prestadorAtualId !== null;
 
-  try {
-    setSalvandoPrioridade(true);
+    try {
+      setSalvandoPrestador(true);
 
-    await api.patch(`/api/solicitacoes/${id}/prioridade`, {
-      prioridade: novaPrioridade
-    });
+      await api.patch(`/api/solicitacoes/${id}/prestador`, {
+        prestadorId: Number(novoPrestador)
+      });
 
-    const resposta = await api.get(`/api/solicitacoes/${id}`);
-    setSolicitacao(resposta.data.data);
+      const resposta = await api.get(`/api/solicitacoes/${id}`);
+      setSolicitacao(resposta.data.data);
 
-    const respostaHistorico = await api.get(
-      `/api/solicitacoes/${id}/historico`
-    );
-    setHistorico(respostaHistorico.data.data);
+      const respostaHistorico = await api.get(
+        `/api/solicitacoes/${id}/historico`
+      );
+      setHistorico(respostaHistorico.data.data);
 
-    setEditandoPrioridade(false);
-    setNovaPrioridade('');
+      setEditandoPrestador(false);
+      setNovoPrestador('');
 
-    setSucessoPrioridade('Prioridade alterada com sucesso!');
-  } catch (error) {
-    setErroPrioridade(
-      error.response?.data?.error?.message ||
-      'Não foi possível alterar a prioridade.'
-    );
-  } finally {
-    setSalvandoPrioridade(false);
-  }
-}
-
-async function atribuirPrestador() {
-  setErroPrestador('');
-  setSucessoPrestador('');
-
-  if (!novoPrestador) {
-    setErroPrestador('Selecione um prestador.');
-    return;
+      setSucessoPrestador(
+        jaPossuiPrestador
+          ? 'Prestador alterado com sucesso!'
+          : 'Prestador atribuído com sucesso!'
+      );
+    } catch (error) {
+      setErroPrestador(
+        error.response?.data?.error?.message ||
+        'Não foi possível atribuir o prestador.'
+      );
+    } finally {
+      setSalvandoPrestador(false);
+    }
   }
 
-  try {
-    setSalvandoPrestador(true);
-
-    await api.patch(`/api/solicitacoes/${id}/prestador`, {
-      prestadorId: Number(novoPrestador)
-    });
-
-    const resposta = await api.get(`/api/solicitacoes/${id}`);
-    setSolicitacao(resposta.data.data);
-
-    const respostaHistorico = await api.get(
-      `/api/solicitacoes/${id}/historico`
-    );
-    setHistorico(respostaHistorico.data.data);
-
-    setEditandoPrestador(false);
-    setNovoPrestador('');
-
-    setSucessoPrestador('Prestador atribuído com sucesso!');
-  } catch (error) {
-    setErroPrestador(
-      error.response?.data?.error?.message ||
-      'Não foi possível atribuir o prestador.'
-    );
-  } finally {
-    setSalvandoPrestador(false);
+  // Confirmar a alteração que estiver sendo realizada.
+  async function confirmarAlteracoes() {
+    if (editandoPrioridade) {
+      await alterarPrioridade();
+    } else if (editandoPrestador) {
+      await atribuirPrestador();
+    }
   }
-}
 
   // Formatar datas.
   function formatarData(data) {
@@ -246,53 +298,63 @@ async function atribuirPrestador() {
           <strong>Status:</strong> {solicitacao.status}
         </p>
 
+        {/* Prioridade */}
         <div style={{ marginTop: '15px', marginBottom: '15px' }}>
-            <p>
-                <strong>Prioridade:</strong> {solicitacao.prioridade}
-            </p>
+          <p>
+            <strong>Prioridade:</strong> {solicitacao.prioridade}
+          </p>
 
-            {ehAdministrador && !editandoPrioridade && (
-                <button
+          {ehAdministrador &&
+            !solicitacaoEncerrada &&
+            !editandoPrioridade &&
+            !editandoPrestador && (
+              <button
                 onClick={() => {
-                    setNovaPrioridade(solicitacao.prioridade);
-                    setEditandoPrioridade(true);
-                    setErroPrioridade('');
-                    setSucessoPrioridade('');
+                  setNovaPrioridade(solicitacao.prioridade);
+                  setEditandoPrioridade(true);
+                  setErroPrioridade('');
+                  setSucessoPrioridade('');
                 }}
-                >
+              >
                 Alterar prioridade
-                </button>
+              </button>
             )}
 
-            {ehAdministrador && editandoPrioridade && (
-                <div style={{ marginTop: '10px' }}>
+          {ehAdministrador &&
+            !solicitacaoEncerrada &&
+            editandoPrioridade && (
+              <div style={{ marginTop: '10px' }}>
                 <select
-                    value={novaPrioridade}
-                    onChange={(e) => setNovaPrioridade(e.target.value)}
+                  value={novaPrioridade}
+                  onChange={(e) => setNovaPrioridade(e.target.value)}
                 >
-                    <option value="Baixa">Baixa</option>
-                    <option value="Normal">Normal</option>
-                    <option value="Alta">Alta</option>
-                    <option value="Urgente">Urgente</option>
+                  <option value="Baixa">Baixa</option>
+                  <option value="Normal">Normal</option>
+                  <option value="Alta">Alta</option>
+                  <option value="Urgente">Urgente</option>
                 </select>
 
                 <button
-                    onClick={() => setEditandoPrioridade(false)}
-                    style={{ marginLeft: '10px' }}
+                  onClick={() => {
+                    setEditandoPrioridade(false);
+                    setNovaPrioridade('');
+                    setErroPrioridade('');
+                  }}
+                  style={{ marginLeft: '10px' }}
                 >
-                    Cancelar
+                  Cancelar
                 </button>
-                </div>
+              </div>
             )}
 
-            {erroPrioridade && (
-                <p style={{ color: 'red' }}>{erroPrioridade}</p>
-            )}
+          {erroPrioridade && (
+            <p style={{ color: 'red' }}>{erroPrioridade}</p>
+          )}
 
-            {sucessoPrioridade && (
-                <p style={{ color: 'green' }}>{sucessoPrioridade}</p>
-            )}
-            </div>
+          {sucessoPrioridade && (
+            <p style={{ color: 'green' }}>{sucessoPrioridade}</p>
+          )}
+        </div>
 
         <p>
           <strong>Categoria:</strong> {solicitacao.categoria}
@@ -304,81 +366,87 @@ async function atribuirPrestador() {
           <strong>Solicitante:</strong> {solicitacao.solicitante}
         </p>
 
+        {/* Prestador responsável */}
         <div style={{ marginTop: '15px', marginBottom: '15px' }}>
-            <p>
-                <strong>Prestador responsável:</strong>{' '}
-                {solicitacao.prestador || 'Ainda não atribuído'}
-            </p>
+          <p>
+            <strong>Prestador responsável:</strong>{' '}
+            {solicitacao.prestador || 'Ainda não atribuído'}
+          </p>
 
-            {ehAdministrador &&
-                solicitacao.status !== 'Finalizada' &&
-                !editandoPrestador && (
-                <button
-                    onClick={() => {
-                        setEditandoPrestador(true);
-                        setNovoPrestador('');
-                        setErroPrestador('');
-                        setSucessoPrestador('');
-                        carregarPrestadores();
-                    }}
-                >
-                    {solicitacao.prestador
-                        ? 'Alterar prestador'
-                        : 'Atribuir prestador'}
-                </button>
+          {ehAdministrador &&
+            !solicitacaoEncerrada &&
+            !editandoPrestador &&
+            !editandoPrioridade && (
+              <button
+                onClick={() => {
+                  setEditandoPrestador(true);
+                  setNovoPrestador('');
+                  setErroPrestador('');
+                  setSucessoPrestador('');
+                  carregarPrestadores();
+                }}
+              >
+                {solicitacao.prestador
+                  ? 'Alterar prestador'
+                  : 'Atribuir prestador'}
+              </button>
             )}
 
-            {ehAdministrador && editandoPrestador && (
-                <div style={{ marginTop: '10px' }}>
+          {ehAdministrador &&
+            !solicitacaoEncerrada &&
+            editandoPrestador && (
+              <div style={{ marginTop: '10px' }}>
                 {carregandoPrestadores ? (
-                    <p>Carregando prestadores...</p>
+                  <p>Carregando prestadores...</p>
                 ) : (
-                    <>
+                  <>
                     <select
-                        value={novoPrestador}
-                        onChange={(e) => setNovoPrestador(e.target.value)}
+                      value={novoPrestador}
+                      onChange={(e) => setNovoPrestador(e.target.value)}
                     >
-                        <option value="">Selecione um prestador</option>
+                      <option value="">Selecione um prestador</option>
 
-                        {prestadores.map((prestador) => (
-                        <option key={prestador.id} value={prestador.id}>
+                      {prestadores.map((prestador) => {
+                        const jaAtribuido =
+                          String(prestador.id) === String(prestadorAtualId);
+
+                        return (
+                          <option
+                            key={prestador.id}
+                            value={prestador.id}
+                            disabled={jaAtribuido}
+                          >
                             {prestador.nome}
-                        </option>
-                        ))}
+                            {jaAtribuido ? ' (já atribuído)' : ''}
+                          </option>
+                        );
+                      })}
                     </select>
 
                     <button
-                        onClick={atribuirPrestador}
-                        disabled={salvandoPrestador || !novoPrestador}
-                        style={{ marginLeft: '10px' }}
-                    >
-                        {salvandoPrestador ? 'Atribuindo...' : 'Confirmar atribuição'}
-                    </button>
-
-                    <button
-                        onClick={() => {
+                      onClick={() => {
                         setEditandoPrestador(false);
                         setNovoPrestador('');
                         setErroPrestador('');
-                        }}
-                        disabled={salvandoPrestador}
-                        style={{ marginLeft: '10px' }}
+                      }}
+                      disabled={salvandoPrestador}
+                      style={{ marginLeft: '10px' }}
                     >
-                        Cancelar
+                      Cancelar
                     </button>
-                    </>
+                  </>
                 )}
-                </div>
+              </div>
             )}
 
-            {erroPrestador && (
-                <p style={{ color: 'red' }}>{erroPrestador}</p>
-            )}
+          {erroPrestador && (
+            <p style={{ color: 'red' }}>{erroPrestador}</p>
+          )}
 
-            {sucessoPrestador && (
-                <p style={{ color: 'green' }}>{sucessoPrestador}</p>
-            )}
-            </div>
+          {sucessoPrestador && (
+            <p style={{ color: 'green' }}>{sucessoPrestador}</p>
+          )}
+        </div>
 
         <hr />
 
@@ -392,21 +460,33 @@ async function atribuirPrestador() {
           {formatarData(solicitacao.data_fechamento)}
         </p>
       </div>
-        
-        {ehAdministrador && editandoPrioridade && (
-            <button
-                onClick={alterarPrioridade}
-                disabled={
-                salvandoPrioridade ||
-                novaPrioridade === solicitacao.prioridade
-                }
-                style={{ marginTop: '15px' }}
-            >
-                {salvandoPrioridade ? 'Salvando...' : 'Confirmar alterações'}
-            </button>
+
+      {/* Botão único para confirmar alterações */}
+      {ehAdministrador &&
+        !solicitacaoEncerrada &&
+        (editandoPrioridade || editandoPrestador) && (
+          <button
+            onClick={confirmarAlteracoes}
+            disabled={
+              salvandoPrioridade ||
+              salvandoPrestador ||
+              (editandoPrioridade &&
+                novaPrioridade === solicitacao.prioridade) ||
+              (editandoPrestador &&
+                (
+                  !novoPrestador ||
+                  String(novoPrestador) === String(prestadorAtualId) ||
+                  carregandoPrestadores
+                ))
+            }
+            style={{ marginTop: '15px' }}
+          >
+            {salvandoPrioridade || salvandoPrestador
+              ? 'Salvando...'
+              : 'Confirmar alteração'}
+          </button>
         )}
 
-      
       <div style={{ marginTop: '35px' }}>
         <h2>Histórico de alterações</h2>
 
@@ -415,9 +495,7 @@ async function atribuirPrestador() {
         )}
 
         {erroHistorico && (
-          <p style={{ color: 'red' }}>
-            {erroHistorico}
-          </p>
+          <p style={{ color: 'red' }}>{erroHistorico}</p>
         )}
 
         {!carregandoHistorico &&
@@ -426,44 +504,42 @@ async function atribuirPrestador() {
             <p>Nenhuma alteração registrada.</p>
           )}
 
-        {!carregandoHistorico &&
-          historico.length > 0 && (
-            <div
-              style={{
-                display: 'flex',
-                flexDirection: 'column',
-                gap: '15px',
-                marginTop: '20px'
-              }}
-            >
-              {historico.map((alteracao) => (
-                <div
-                  key={alteracao.id}
-                  style={{
-                    border: '1px solid #cccccc',
-                    borderRadius: '8px',
-                    padding: '20px'
-                  }}
-                >
-                  <h3>{alteracao.tipo}</h3>
+        {!carregandoHistorico && historico.length > 0 && (
+          <div
+            style={{
+              display: 'flex',
+              flexDirection: 'column',
+              gap: '15px',
+              marginTop: '20px'
+            }}
+          >
+            {historico.map((alteracao) => (
+              <div
+                key={alteracao.id}
+                style={{
+                  border: '1px solid #cccccc',
+                  borderRadius: '8px',
+                  padding: '20px'
+                }}
+              >
+                <h3>{alteracao.tipo}</h3>
 
-                  <p>{alteracao.descricao}</p>
+                <p>{alteracao.descricao}</p>
 
-                  <p>
-                    <strong>Responsável:</strong>{' '}
-                    {alteracao.usuario || 'Não informado'}
-                  </p>
+                <p>
+                  <strong>Responsável:</strong>{' '}
+                  {alteracao.usuario || 'Não informado'}
+                </p>
 
-                  <p>
-                    <strong>Data:</strong>{' '}
-                    {formatarDataHora(alteracao.data)}
-                  </p>
-                </div>
-              ))}
-            </div>
-          )}
+                <p>
+                  <strong>Data:</strong>{' '}
+                  {formatarDataHora(alteracao.data)}
+                </p>
+              </div>
+            ))}
+          </div>
+        )}
       </div>
-
 
       <button
         onClick={() => navigate('/solicitacoes')}

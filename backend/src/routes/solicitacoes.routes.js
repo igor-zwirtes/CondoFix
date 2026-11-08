@@ -141,6 +141,32 @@ router.get(
 );
 
 router.get(
+  "/prestadores",
+  autenticar,
+  exigirPapel("ADMIN", "ADMINISTRADOR"),
+  async (req, res, next) => {
+    try {
+      const resultado = await pool.query(
+        `SELECT
+           p.usrid AS id,
+           u.usrnam AS nome
+         FROM "PRESTADORES_SERVICO" p
+         JOIN "USUARIOS" u
+           ON u.usrid = p.usrid
+         ORDER BY u.usrnam ASC`
+      );
+
+      return res.json({
+        success: true,
+        data: resultado.rows,
+      });
+    } catch (error) {
+      return next(error);
+    }
+  }
+);
+
+router.get(
   "/:id",
   autenticar,
   exigirPapel("ADMIN", "ADMINISTRADOR", "USUARIO", "PRESTADOR_SERVICO"),
@@ -458,6 +484,7 @@ router.patch(
 );
 
 
+
 router.patch(
   "/:id/prestador",
   autenticar,
@@ -494,11 +521,19 @@ router.patch(
     try {
       await client.query("BEGIN");
 
+      // Busca a solicitação e o nome do prestador atualmente atribuído.
       const consulta = await client.query(
-        `SELECT s.soid, s.pvdid, s.stsid, st.stsnom
+        `SELECT
+           s.soid,
+           s.pvdid,
+           s.stsid,
+           st.stsnom,
+           u.usrnam AS prestador_atual_nome
          FROM "SOLICITACOES" s
          JOIN "STATUS_SOLICITACAO" st
            ON st.stsid = s.stsid
+         LEFT JOIN "USUARIOS" u
+           ON u.usrid = s.pvdid
          WHERE s.soid = $1
          FOR UPDATE OF s`,
         [id]
@@ -506,6 +541,7 @@ router.patch(
 
       if (consulta.rows.length === 0) {
         await client.query("ROLLBACK");
+
         return res.status(404).json({
           success: false,
           error: {
@@ -517,30 +553,35 @@ router.patch(
 
       const solicitacao = consulta.rows[0];
 
-      if (
-        solicitacao.stsnom !== "Aprovada" ||
-        solicitacao.pvdid !== null
-      ) {
+      // Impede atribuição em solicitações encerradas.
+      if (solicitacao.stsnom === "Encerrada") {
         await client.query("ROLLBACK");
+
         return res.status(409).json({
           success: false,
           error: {
             code: "REQUEST_NOT_ASSIGNABLE",
             message:
-              "A solicitação precisa estar aprovada e sem prestador atribuído.",
+              "Não é possível atribuir um prestador a uma solicitação encerrada.",
           },
         });
       }
 
+      // Verifica se o prestador existe e busca seu nome.
       const prestador = await client.query(
-        `SELECT p.usrid
+        `SELECT
+           p.usrid,
+           u.usrnam
          FROM "PRESTADORES_SERVICO" p
+         JOIN "USUARIOS" u
+           ON u.usrid = p.usrid
          WHERE p.usrid = $1`,
         [prestadorId]
       );
 
       if (prestador.rows.length === 0) {
         await client.query("ROLLBACK");
+
         return res.status(404).json({
           success: false,
           error: {
@@ -550,6 +591,24 @@ router.patch(
         });
       }
 
+      // Impede atribuir novamente o mesmo prestador.
+      if (
+        solicitacao.pvdid !== null &&
+        Number(solicitacao.pvdid) === Number(prestadorId)
+      ) {
+        await client.query("ROLLBACK");
+
+        return res.status(409).json({
+          success: false,
+          error: {
+            code: "PROVIDER_ALREADY_ASSIGNED",
+            message:
+              "Este prestador já está atribuído à solicitação.",
+          },
+        });
+      }
+
+      // Busca o status de solicitação atribuída.
       const statusAtribuida = await client.query(
         `SELECT stsid
          FROM "STATUS_SOLICITACAO"
@@ -561,6 +620,7 @@ router.patch(
         throw new Error('Status "Atribuida" não cadastrado.');
       }
 
+      // Atualiza o prestador responsável e o status.
       await client.query(
         `UPDATE "SOLICITACOES"
          SET pvdid = $1,
@@ -569,6 +629,7 @@ router.patch(
         [prestadorId, statusAtribuida.rows[0].stsid, id]
       );
 
+      // Registra a atribuição ou substituição no histórico.
       await client.query(
         `INSERT INTO "ALTERACOES" (soid, usrid, typid, altdcp)
          VALUES ($1, $2, $3, $4)`,
@@ -576,7 +637,9 @@ router.patch(
           id,
           req.usuario.id,
           3,
-          `Prestador atribuído: usuário ${prestadorId}.`,
+          solicitacao.pvdid === null
+            ? `Prestador ${prestador.rows[0].usrnam} atribuído à solicitação.`
+            : `Prestador responsável alterado de ${solicitacao.prestador_atual_nome} para ${prestador.rows[0].usrnam}.`,
         ]
       );
 
