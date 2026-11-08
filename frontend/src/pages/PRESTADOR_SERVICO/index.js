@@ -26,7 +26,7 @@ export default function PainelPrestador() {
       <h2>Bem-vindo, {nomeUsuario}!</h2>
 
       <button onClick={() => navigate('/solicitacoes')}>
-        Ver solicitações
+        Consultar serviços atribuídos
       </button>
 
       <button onClick={handleLogout}>Sair</button>

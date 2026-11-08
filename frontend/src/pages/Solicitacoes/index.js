@@ -6,6 +6,12 @@ import api from '../../services/api';
 export default function Solicitacoes() {
   const navigate = useNavigate();
 
+  const dadosUsuario = JSON.parse(
+    localStorage.getItem('@CondoFix:user') || '{}'
+  );
+
+  const ehPrestador = dadosUsuario.papeis?.includes('PRESTADOR_SERVICO');
+
   const [solicitacoes, setSolicitacoes] = useState([]);
   const [carregando, setCarregando] = useState(true);
   const [erro, setErro] = useState('');
@@ -58,7 +64,11 @@ export default function Solicitacoes() {
     >
       <h1>CondoFix</h1>
 
-      <h2>Solicitações de manutenção</h2>
+      <h2>
+      {ehPrestador
+        ? 'Serviços atribuídos a mim'
+        : 'Solicitações de manutenção'}
+      </h2>
 
       {erro && (
         <p style={{ color: 'red', marginTop: '15px' }}>
@@ -67,7 +77,11 @@ export default function Solicitacoes() {
       )}
 
       {!erro && solicitacoes.length === 0 && (
-        <p>Nenhuma solicitação encontrada.</p>
+        <p>
+            {ehPrestador
+            ? 'Você não possui serviços atribuídos no momento.'
+            : 'Nenhuma solicitação encontrada.'}
+        </p>
       )}
 
       <div
@@ -88,6 +102,12 @@ export default function Solicitacoes() {
             }}
           >
             <h3>{solicitacao.titulo}</h3>
+
+            {ehPrestador && (
+            <p>
+                <strong>Solicitante:</strong> {solicitacao.solicitante}
+            </p>
+            )}
 
             <p>
               <strong>Status:</strong> {solicitacao.status}
