@@ -6,6 +6,14 @@ export default function SolicitacaoDetalhes() {
   const navigate = useNavigate();
   const { id } = useParams();
 
+  const usuario = JSON.parse(
+    localStorage.getItem('@CondoFix:user') || '{}'
+  );
+
+  const ehAdministrador = usuario.papeis?.some((papel) =>
+    ['ADMIN', 'ADMINISTRADOR'].includes(papel.toUpperCase())
+  );
+
   const [solicitacao, setSolicitacao] = useState(null);
   const [carregando, setCarregando] = useState(true);
   const [erro, setErro] = useState('');
@@ -13,6 +21,13 @@ export default function SolicitacaoDetalhes() {
   const [historico, setHistorico] = useState([]);
   const [carregandoHistorico, setCarregandoHistorico] = useState(true);
   const [erroHistorico, setErroHistorico] = useState('');
+
+  const [novaPrioridade, setNovaPrioridade] = useState('');
+  const [salvandoPrioridade, setSalvandoPrioridade] = useState(false);
+  const [erroPrioridade, setErroPrioridade] = useState('');
+  const [sucessoPrioridade, setSucessoPrioridade] = useState('');
+
+  const [editandoPrioridade, setEditandoPrioridade] = useState(false);
 
   // Carregar os detalhes da solicitação.
   useEffect(() => {
@@ -55,6 +70,43 @@ export default function SolicitacaoDetalhes() {
 
     carregarHistorico();
     }, [id]);
+
+async function alterarPrioridade() {
+  setErroPrioridade('');
+  setSucessoPrioridade('');
+
+  if (!novaPrioridade || novaPrioridade === solicitacao.prioridade) {
+    return;
+  }
+
+  try {
+    setSalvandoPrioridade(true);
+
+    await api.patch(`/api/solicitacoes/${id}/prioridade`, {
+      prioridade: novaPrioridade
+    });
+
+    const resposta = await api.get(`/api/solicitacoes/${id}`);
+    setSolicitacao(resposta.data.data);
+
+    const respostaHistorico = await api.get(
+      `/api/solicitacoes/${id}/historico`
+    );
+    setHistorico(respostaHistorico.data.data);
+
+    setEditandoPrioridade(false);
+    setNovaPrioridade('');
+
+    setSucessoPrioridade('Prioridade alterada com sucesso!');
+  } catch (error) {
+    setErroPrioridade(
+      error.response?.data?.error?.message ||
+      'Não foi possível alterar a prioridade.'
+    );
+  } finally {
+    setSalvandoPrioridade(false);
+  }
+}
 
   // Formatar datas.
   function formatarData(data) {
@@ -131,9 +183,53 @@ export default function SolicitacaoDetalhes() {
           <strong>Status:</strong> {solicitacao.status}
         </p>
 
-        <p>
-          <strong>Prioridade:</strong> {solicitacao.prioridade}
-        </p>
+        <div style={{ marginTop: '15px', marginBottom: '15px' }}>
+            <p>
+                <strong>Prioridade:</strong> {solicitacao.prioridade}
+            </p>
+
+            {ehAdministrador && !editandoPrioridade && (
+                <button
+                onClick={() => {
+                    setNovaPrioridade(solicitacao.prioridade);
+                    setEditandoPrioridade(true);
+                    setErroPrioridade('');
+                    setSucessoPrioridade('');
+                }}
+                >
+                Alterar prioridade
+                </button>
+            )}
+
+            {ehAdministrador && editandoPrioridade && (
+                <div style={{ marginTop: '10px' }}>
+                <select
+                    value={novaPrioridade}
+                    onChange={(e) => setNovaPrioridade(e.target.value)}
+                >
+                    <option value="Baixa">Baixa</option>
+                    <option value="Normal">Normal</option>
+                    <option value="Alta">Alta</option>
+                    <option value="Urgente">Urgente</option>
+                </select>
+
+                <button
+                    onClick={() => setEditandoPrioridade(false)}
+                    style={{ marginLeft: '10px' }}
+                >
+                    Cancelar
+                </button>
+                </div>
+            )}
+
+            {erroPrioridade && (
+                <p style={{ color: 'red' }}>{erroPrioridade}</p>
+            )}
+
+            {sucessoPrioridade && (
+                <p style={{ color: 'green' }}>{sucessoPrioridade}</p>
+            )}
+            </div>
 
         <p>
           <strong>Categoria:</strong> {solicitacao.categoria}
@@ -162,6 +258,19 @@ export default function SolicitacaoDetalhes() {
           {formatarData(solicitacao.data_fechamento)}
         </p>
       </div>
+        
+        {ehAdministrador && editandoPrioridade && (
+            <button
+                onClick={alterarPrioridade}
+                disabled={
+                salvandoPrioridade ||
+                novaPrioridade === solicitacao.prioridade
+                }
+                style={{ marginTop: '15px' }}
+            >
+                {salvandoPrioridade ? 'Salvando...' : 'Confirmar alterações'}
+            </button>
+        )}
 
       
       <div style={{ marginTop: '35px' }}>

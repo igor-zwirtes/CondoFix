@@ -238,70 +238,84 @@ ON CONFLICT (soid) DO NOTHING;
 -- 9. HISTORICO DE ALTERACOES
 -- =====================================================
 
-INSERT INTO "ALTERACOES" (soid, usrid, typid, altdcp)
+INSERT INTO "ALTERACOES" (soid, usrid, typid, altdcp, alttim)
 SELECT
     s.soid,
     responsavel.usrid,
     t.typid,
-    dados.descricao
+    dados.descricao,
+    dados.data_alteracao
 FROM (
     VALUES
         ('morador@condofix.local',
          'Vazamento na pia',
          'morador@condofix.local',
-         'Descricao',
-         'Solicitacao criada pelo morador.'),
+         'Criacao',
+         'Solicitacao criada pelo morador.',
+         TIMESTAMP '2026-01-01 10:00:00'),
 
         ('morador@condofix.local',
          'Vazamento na pia',
          'sindico@condofix.local',
          'Prioridade',
-         'Prioridade alterada para Alta.'),
+         'Prioridade alterada para Alta.',
+         TIMESTAMP '2026-01-01 10:05:00'),
 
         ('morador@condofix.local',
          'Vazamento na pia',
          'sindico@condofix.local',
-         'Atribuicao',
-         'Prestador designado para realizar o servico.'),
+         'Prestador',
+         'Prestador designado para realizar o servico.',
+         TIMESTAMP '2026-01-01 10:10:00'),
 
         ('morador@condofix.local',
          'Vazamento na pia',
          'prestador@condofix.local',
          'Conclusao',
-         'Reparo realizado com sucesso.'),
+         'Reparo realizado com sucesso.',
+         TIMESTAMP '2026-01-01 10:30:00'),
 
         ('morador@condofix.local',
          'Lampada queimada',
          'morador@condofix.local',
          'Criacao',
-         'Solicitacao criada pelo morador.'),
+         'Solicitacao criada pelo morador.',
+         TIMESTAMP '2026-01-02 10:00:00'),
 
         ('morador@condofix.local',
          'Lampada queimada',
          'sindico@condofix.local',
          'Prestador',
-         'Prestador designado para realizar o servico.'),
+         'Prestador designado para realizar o servico.',
+         TIMESTAMP '2026-01-02 10:05:00'),
 
         ('morador@condofix.local',
          'Lampada queimada',
          'prestador@condofix.local',
          'Status',
-         'Status alterado para Em andamento.'),
+         'Status alterado para Em andamento.',
+         TIMESTAMP '2026-01-02 10:10:00'),
 
         ('morador@condofix.local',
          'Torneira com vazamento',
          'morador@condofix.local',
          'Criacao',
-         'Solicitacao criada pelo morador.'),
+         'Solicitacao criada pelo morador.',
+         TIMESTAMP '2026-01-03 10:00:00'),
 
         ('morador@condofix.local',
          'Torneira com vazamento',
          'sindico@condofix.local',
          'Status',
-         'Status alterado para Cancelada.')
+         'Status alterado para Cancelada.',
+         TIMESTAMP '2026-01-03 10:05:00')
 ) AS dados(
-    email_solicitante, titulo, email_responsavel,
-    tipo, descricao
+    email_solicitante,
+    titulo,
+    email_responsavel,
+    tipo,
+    descricao,
+    data_alteracao
 )
 JOIN "USUARIOS" solicitante
     ON solicitante.usreml = dados.email_solicitante
@@ -320,6 +334,7 @@ WHERE NOT EXISTS (
       AND alt.typid = t.typid
       AND alt.altdcp = dados.descricao
 );
+
 
 
 -- =====================================================
