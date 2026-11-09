@@ -1,4 +1,3 @@
-
 import React, { useEffect, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import api from '../../services/api';
@@ -35,6 +34,11 @@ export default function SolicitacaoDetalhes() {
   const [salvandoStatus, setSalvandoStatus] = useState(false);
   const [erroStatus, setErroStatus] = useState('');
   const [sucessoStatus, setSucessoStatus] = useState('');
+
+  const [descricaoSolucao, setDescricaoSolucao] = useState('');
+  const [salvandoConclusao, setSalvandoConclusao] = useState(false);
+  const [erroConclusao, setErroConclusao] = useState('');
+  const [sucessoConclusao, setSucessoConclusao] = useState('');
 
   const [editandoPrioridade, setEditandoPrioridade] = useState(false);
   const [prestadores, setPrestadores] = useState([]);
@@ -210,6 +214,58 @@ export default function SolicitacaoDetalhes() {
     }
     }
 
+    // Registrar a conclusão do serviço.
+    async function concluirServico() {
+        setErroConclusao('');
+        setSucessoConclusao('');
+
+        if (
+        !ehPrestador ||
+        solicitacao.status !== 'Em andamento'
+        ) {
+        return;
+        }
+
+        if (!descricaoSolucao.trim()) {
+        setErroConclusao(
+            'Informe a solução realizada antes de concluir o serviço.'
+        );
+        return;
+        }
+
+        try {
+        setSalvandoConclusao(true);
+
+        await api.patch(`/api/solicitacoes/${id}/status`, {
+            status: 'Concluida',
+            descricao: descricaoSolucao
+        });
+
+        // Atualizar os detalhes da solicitação.
+        const resposta = await api.get(`/api/solicitacoes/${id}`);
+        setSolicitacao(resposta.data.data);
+
+        // Atualizar o histórico.
+        const respostaHistorico = await api.get(
+            `/api/solicitacoes/${id}/historico`
+        );
+
+        setHistorico(respostaHistorico.data.data);
+        setErroHistorico('');
+
+        setDescricaoSolucao('');
+        setSucessoConclusao('Serviço concluído com sucesso!');
+        } catch (error) {
+        setErroConclusao(
+            error.response?.data?.error?.message ||
+            'Não foi possível concluir o serviço.'
+        );
+        } finally {
+        setSalvandoConclusao(false);
+        }
+    }
+
+
   // Atribuir ou trocar o prestador.
   async function atribuirPrestador() {
     setErroPrestador('');
@@ -380,12 +436,59 @@ export default function SolicitacaoDetalhes() {
             )}
         </div>
         )}
-
+        
+        {/* Registro da conclusão pelo prestador */}
         {ehPrestador && solicitacao.status === 'Em andamento' && (
-        <p style={{ marginTop: '15px' }}>
-            O serviço está em andamento.
-        </p>
+            <div
+            style={{
+                marginTop: '20px',
+                marginBottom: '20px',
+                padding: '15px',
+                border: '1px solid #cccccc',
+                borderRadius: '8px'
+            }}
+            >
+            <h3>Concluir serviço</h3>
+
+            <p>
+                Informe a solução realizada para registrar a conclusão
+                desta solicitação.
+            </p>
+
+            <textarea
+                value={descricaoSolucao}
+                onChange={(e) => setDescricaoSolucao(e.target.value)}
+                placeholder="Descreva a solução realizada..."
+                rows={4}
+                style={{
+                width: '100%',
+                padding: '10px',
+                marginTop: '10px',
+                marginBottom: '10px',
+                boxSizing: 'border-box',
+                resize: 'vertical'
+                }}
+            />
+
+            <button
+                onClick={concluirServico}
+                disabled={salvandoConclusao || !descricaoSolucao.trim()}
+            >
+                {salvandoConclusao
+                ? 'Concluindo...'
+                : 'Concluir serviço'}
+            </button>
+
+            {erroConclusao && (
+                <p style={{ color: 'red' }}>{erroConclusao}</p>
+            )}
+
+            {sucessoConclusao && (
+                <p style={{ color: 'green' }}>{sucessoConclusao}</p>
+            )}
+            </div>
         )}
+
 
         {/* Prioridade */}
         <div style={{ marginTop: '15px', marginBottom: '15px' }}>

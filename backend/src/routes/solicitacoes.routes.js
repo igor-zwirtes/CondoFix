@@ -352,13 +352,14 @@ router.get(
   }
 );
 
+
 router.patch(
   "/:id/status",
   autenticar,
   exigirPapel("PRESTADOR_SERVICO"),
   async (req, res, next) => {
     const id = Number(req.params.id);
-    const { status } = req.body;
+    const { status, descricao } = req.body;
 
     if (!Number.isSafeInteger(id) || id <= 0) {
       return res.status(400).json({
@@ -375,13 +376,29 @@ router.patch(
       "Em andamento": "Concluida",
     };
 
-    if (typeof status !== "string" ||
-        !Object.values(transicoesPermitidas).includes(status)) {
+    if (
+      typeof status !== "string" ||
+      !Object.values(transicoesPermitidas).includes(status)
+    ) {
       return res.status(400).json({
         success: false,
         error: {
           code: "INVALID_STATUS",
           message: "Status solicitado inválido.",
+        },
+      });
+    }
+
+    // A conclusão exige uma descrição da solução realizada.
+    if (
+      status === "Concluida" &&
+      (typeof descricao !== "string" || !descricao.trim())
+    ) {
+      return res.status(400).json({
+        success: false,
+        error: {
+          code: "SOLUTION_REQUIRED",
+          message: "Informe a solução realizada antes de concluir o serviço.",
         },
       });
     }
@@ -446,31 +463,46 @@ router.patch(
         throw new Error(`Status não cadastrado: ${status}`);
       }
 
+      // Buscar o tipo correto para registrar no histórico.
+      const nomeTipo = status === "Concluida" ? "Conclusao" : "Status";
+
+      const tipoAlteracao = await client.query(
+        `SELECT typid
+         FROM "TIPOS_ALTERACAO"
+         WHERE typnom = $1`,
+        [nomeTipo]
+      );
+
+      if (tipoAlteracao.rows.length === 0) {
+        throw new Error(`Tipo de alteração não cadastrado: ${nomeTipo}`);
+      }
+
+      // Atualizar o status e a data de fechamento, quando concluído.
       await client.query(
         `UPDATE "SOLICITACOES"
-         SET stsid = $1
-         WHERE soid = $2`,
-        [novoStatus.rows[0].stsid, id]
+         SET stsid = $1,
+             socls = CASE
+               WHEN $2 = 'Concluida' THEN CURRENT_TIMESTAMP
+               ELSE NULL
+             END
+         WHERE soid = $3`,
+        [novoStatus.rows[0].stsid, status, id]
       );
 
-      const tipoStatus = await client.query(
-        `SELECT typid
-        FROM "TIPOS_ALTERACAO"
-        WHERE typnom = 'Status'`
-      );
-
-      if (tipoStatus.rows.length === 0) {
-        throw new Error('Tipo de alteração "Status" não cadastrado.');
-      }
+      // Registrar a mudança no histórico.
+      const descricaoHistorico =
+        status === "Concluida"
+          ? `Serviço concluído. Solução realizada: ${descricao.trim()}`
+          : `Status alterado de "${solicitacao.stsnom}" para "${status}".`;
 
       await client.query(
         `INSERT INTO "ALTERACOES" (soid, usrid, typid, altdcp)
-        VALUES ($1, $2, $3, $4)`,
+         VALUES ($1, $2, $3, $4)`,
         [
           id,
           req.usuario.id,
-          tipoStatus.rows[0].typid,
-          `Status alterado de "${solicitacao.stsnom}" para "${status}".`,
+          tipoAlteracao.rows[0].typid,
+          descricaoHistorico,
         ]
       );
 
@@ -492,6 +524,7 @@ router.patch(
     }
   }
 );
+
 
 
 
