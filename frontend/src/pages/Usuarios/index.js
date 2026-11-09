@@ -90,8 +90,16 @@ export default function Usuarios() {
             Painel
           </button>
 
+          <button
+            className="usuarios-sidebar-link"
+            onClick={() => navigate('/solicitacoes')}
+          >
+            <span>▤</span>
+            Solicitações
+          </button>
+
           <button className="usuarios-sidebar-link active">
-            <span>♙</span>
+            <span>◎</span>
             Usuários
           </button>
 
@@ -162,7 +170,6 @@ export default function Usuarios() {
                       <th>Telefone</th>
                       <th>Perfil</th>
                       <th>Status</th>
-                      <th>Ações</th>
                     </tr>
                   </thead>
 

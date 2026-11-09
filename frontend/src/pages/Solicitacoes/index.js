@@ -87,7 +87,7 @@ export default function Solicitacoes() {
 
           <button
             className="solicitacoes-sidebar-link"
-            onClick={() => navigate(-1)}
+            onClick={() => navigate('/administrador')}
           >
             <span>▦</span>
             Painel
@@ -96,6 +96,14 @@ export default function Solicitacoes() {
           <button className="solicitacoes-sidebar-link active">
             <span>▤</span>
             Solicitações
+          </button>
+
+          <button
+            className="solicitacoes-sidebar-link"
+            onClick={() => navigate('/usuarios')}
+          >
+            <span>♙</span>
+            Usuários
           </button>
 
           <div className="solicitacoes-sidebar-bottom">

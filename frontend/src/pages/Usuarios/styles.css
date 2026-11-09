@@ -139,27 +139,27 @@
 
 /* Botão de atualização */
 .usuarios-refresh {
-  padding: 11px 16px;
+  padding: 13px 20px;
   border: none;
   border-radius: 10px;
-  background: #202A27;
-  color: #C5FA91;
+  background: #C5FA91;
+  color: #202A27;
   font-family: inherit;
-  font-size: 13px;
+  font-size: 14px;
   font-weight: 600;
   cursor: pointer;
   transition: background 0.2s;
-  white-space: nowrap;
 }
 
 .usuarios-refresh:hover {
-  background: #35443D;
+  background: #B2EB7C;
 }
 
 .usuarios-refresh:disabled {
   opacity: 0.6;
   cursor: not-allowed;
 }
+
 
 /* Painel da listagem */
 .usuarios-panel {
