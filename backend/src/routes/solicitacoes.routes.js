@@ -453,13 +453,23 @@ router.patch(
         [novoStatus.rows[0].stsid, id]
       );
 
+      const tipoStatus = await client.query(
+        `SELECT typid
+        FROM "TIPOS_ALTERACAO"
+        WHERE typnom = 'Status'`
+      );
+
+      if (tipoStatus.rows.length === 0) {
+        throw new Error('Tipo de alteração "Status" não cadastrado.');
+      }
+
       await client.query(
         `INSERT INTO "ALTERACOES" (soid, usrid, typid, altdcp)
-         VALUES ($1, $2, $3, $4)`,
+        VALUES ($1, $2, $3, $4)`,
         [
           id,
           req.usuario.id,
-          6,
+          tipoStatus.rows[0].typid,
           `Status alterado de "${solicitacao.stsnom}" para "${status}".`,
         ]
       );

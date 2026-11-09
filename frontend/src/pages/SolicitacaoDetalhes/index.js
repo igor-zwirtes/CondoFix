@@ -15,6 +15,10 @@ export default function SolicitacaoDetalhes() {
     ['ADMIN', 'ADMINISTRADOR'].includes(papel.toUpperCase())
   );
 
+  const ehPrestador = usuario.papeis?.some((papel) =>
+    papel.toUpperCase() === 'PRESTADOR_SERVICO'
+  );
+
   const [solicitacao, setSolicitacao] = useState(null);
   const [carregando, setCarregando] = useState(true);
   const [erro, setErro] = useState('');
@@ -27,6 +31,10 @@ export default function SolicitacaoDetalhes() {
   const [salvandoPrioridade, setSalvandoPrioridade] = useState(false);
   const [erroPrioridade, setErroPrioridade] = useState('');
   const [sucessoPrioridade, setSucessoPrioridade] = useState('');
+
+  const [salvandoStatus, setSalvandoStatus] = useState(false);
+  const [erroStatus, setErroStatus] = useState('');
+  const [sucessoStatus, setSucessoStatus] = useState('');
 
   const [editandoPrioridade, setEditandoPrioridade] = useState(false);
   const [prestadores, setPrestadores] = useState([]);
@@ -152,6 +160,55 @@ export default function SolicitacaoDetalhes() {
       setSalvandoPrioridade(false);
     }
   }
+
+    // Atualizar o status da solicitação.
+    async function alterarStatus() {
+    setErroStatus('');
+    setSucessoStatus('');
+
+    // Nesta etapa, só é permitido iniciar uma solicitação atribuída.
+    if (!ehPrestador || solicitacao.status !== 'Atribuida') {
+        return;
+    }
+
+    try {
+        setSalvandoStatus(true);
+
+        await api.patch(`/api/solicitacoes/${id}/status`, {
+        status: 'Em andamento'
+        });
+
+        // Atualizar o status exibido na tela.
+        setSolicitacao((anterior) => ({
+        ...anterior,
+        status: 'Em andamento'
+        }));
+
+        setSucessoStatus('Status atualizado com sucesso!');
+
+        // Atualizar o histórico exibido na tela.
+        try {
+        const respostaHistorico = await api.get(
+            `/api/solicitacoes/${id}/historico`
+        );
+
+        setHistorico(respostaHistorico.data.data);
+        setErroHistorico('');
+        } catch (error) {
+        setErroHistorico(
+            'O status foi atualizado, mas não foi possível atualizar o histórico na tela.'
+        );
+        }
+
+    } catch (error) {
+        setErroStatus(
+        error.response?.data?.error?.message ||
+        'Não foi possível atualizar o status.'
+        );
+    } finally {
+        setSalvandoStatus(false);
+    }
+    }
 
   // Atribuir ou trocar o prestador.
   async function atribuirPrestador() {
@@ -297,6 +354,38 @@ export default function SolicitacaoDetalhes() {
         <p>
           <strong>Status:</strong> {solicitacao.status}
         </p>
+
+        {/* Atualização de status pelo prestador */}
+        {ehPrestador && solicitacao.status === 'Atribuida' && (
+        <div style={{ marginTop: '15px', marginBottom: '15px' }}>
+            <p>
+            Esta solicitação está atribuída a você
+            </p>
+
+            <button
+            onClick={alterarStatus}
+            disabled={salvandoStatus}
+            >
+            {salvandoStatus
+                ? 'Atualizando...'
+                : 'Iniciar serviço'}
+            </button>
+
+            {erroStatus && (
+            <p style={{ color: 'red' }}>{erroStatus}</p>
+            )}
+
+            {sucessoStatus && (
+            <p style={{ color: 'green' }}>{sucessoStatus}</p>
+            )}
+        </div>
+        )}
+
+        {ehPrestador && solicitacao.status === 'Em andamento' && (
+        <p style={{ marginTop: '15px' }}>
+            O serviço está em andamento.
+        </p>
+        )}
 
         {/* Prioridade */}
         <div style={{ marginTop: '15px', marginBottom: '15px' }}>
