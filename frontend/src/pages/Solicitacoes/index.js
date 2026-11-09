@@ -18,6 +18,8 @@ export default function Solicitacoes() {
 
   const ehPrestador = dadosUsuario.papeis?.includes('PRESTADOR_SERVICO');
 
+  const ehAdmin = dadosUsuario.papeis?.includes('ADMIN');
+
   const [solicitacoes, setSolicitacoes] = useState([]);
   const [carregando, setCarregando] = useState(true);
   const [erro, setErro] = useState('');
@@ -98,13 +100,14 @@ export default function Solicitacoes() {
             Solicitações
           </button>
 
-          <button
-            className="solicitacoes-sidebar-link"
-            onClick={() => navigate('/usuarios')}
-          >
-            <span>♙</span>
-            Usuários
-          </button>
+          {ehAdmin && (
+            <button
+              className="solicitacoes-sidebar-link"
+              onClick={() => navigate('/usuarios')}
+            >
+              <span>◎</span> Usuários
+            </button>
+          )}
 
           <div className="solicitacoes-sidebar-bottom">
             <button
