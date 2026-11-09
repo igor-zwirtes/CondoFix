@@ -69,9 +69,9 @@ BEGIN
     UPDATE SOLICITACOES
     SET stsid = p_stsid,
         socls = CASE
-            WHEN v_status IN ('Concluida', 'Finalizada')
+            WHEN v_status IN ('Finalizada', 'Cancelada')
                 THEN COALESCE(socls, CURRENT_TIMESTAMP)
-            ELSE socls
+            ELSE NULL
         END
     WHERE soid = p_soid;
 
