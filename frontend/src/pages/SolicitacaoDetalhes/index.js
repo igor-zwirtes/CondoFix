@@ -1,3 +1,4 @@
+
 import React, { useEffect, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import api from '../../services/api';
@@ -16,6 +17,10 @@ export default function SolicitacaoDetalhes() {
 
   const ehPrestador = usuario.papeis?.some((papel) =>
     papel.toUpperCase() === 'PRESTADOR_SERVICO'
+  );
+
+  const ehMorador = usuario.papeis?.some((papel) =>
+    papel.toUpperCase() === 'USUARIO'
   );
 
   const [solicitacao, setSolicitacao] = useState(null);
@@ -40,6 +45,13 @@ export default function SolicitacaoDetalhes() {
   const [erroConclusao, setErroConclusao] = useState('');
   const [sucessoConclusao, setSucessoConclusao] = useState('');
 
+  // Estados da avaliação do serviço.
+  const [notaAvaliacao, setNotaAvaliacao] = useState('');
+  const [comentarioAvaliacao, setComentarioAvaliacao] = useState('');
+  const [salvandoAvaliacao, setSalvandoAvaliacao] = useState(false);
+  const [erroAvaliacao, setErroAvaliacao] = useState('');
+  const [sucessoAvaliacao, setSucessoAvaliacao] = useState('');
+
   const [editandoPrioridade, setEditandoPrioridade] = useState(false);
   const [prestadores, setPrestadores] = useState([]);
   const [novoPrestador, setNovoPrestador] = useState('');
@@ -57,7 +69,6 @@ export default function SolicitacaoDetalhes() {
   ].includes(solicitacao?.status);
 
   // Obter o ID do prestador atualmente atribuído.
-  // Aceita os nomes mais comuns usados na resposta da API.
   const prestadorAtualId =
     solicitacao?.prestadorId ??
     solicitacao?.pvdid ??
@@ -165,106 +176,147 @@ export default function SolicitacaoDetalhes() {
     }
   }
 
-    // Atualizar o status da solicitação.
-    async function alterarStatus() {
+  // Atualizar o status da solicitação.
+  async function alterarStatus() {
     setErroStatus('');
     setSucessoStatus('');
 
-    // Nesta etapa, só é permitido iniciar uma solicitação atribuída.
     if (!ehPrestador || solicitacao.status !== 'Atribuida') {
-        return;
+      return;
     }
 
     try {
-        setSalvandoStatus(true);
+      setSalvandoStatus(true);
 
-        await api.patch(`/api/solicitacoes/${id}/status`, {
+      await api.patch(`/api/solicitacoes/${id}/status`, {
         status: 'Em andamento'
-        });
+      });
 
-        // Atualizar o status exibido na tela.
-        setSolicitacao((anterior) => ({
+      setSolicitacao((anterior) => ({
         ...anterior,
         status: 'Em andamento'
-        }));
+      }));
 
-        setSucessoStatus('Status atualizado com sucesso!');
+      setSucessoStatus('Status atualizado com sucesso!');
 
-        // Atualizar o histórico exibido na tela.
-        try {
+      try {
         const respostaHistorico = await api.get(
-            `/api/solicitacoes/${id}/historico`
+          `/api/solicitacoes/${id}/historico`
         );
 
         setHistorico(respostaHistorico.data.data);
         setErroHistorico('');
-        } catch (error) {
+      } catch (error) {
         setErroHistorico(
-            'O status foi atualizado, mas não foi possível atualizar o histórico na tela.'
+          'O status foi atualizado, mas não foi possível atualizar o histórico na tela.'
         );
-        }
-
+      }
     } catch (error) {
-        setErroStatus(
+      setErroStatus(
         error.response?.data?.error?.message ||
         'Não foi possível atualizar o status.'
-        );
+      );
     } finally {
-        setSalvandoStatus(false);
+      setSalvandoStatus(false);
     }
-    }
+  }
 
-    // Registrar a conclusão do serviço.
-    async function concluirServico() {
-        setErroConclusao('');
-        setSucessoConclusao('');
+  // Registrar a conclusão do serviço.
+  async function concluirServico() {
+    setErroConclusao('');
+    setSucessoConclusao('');
 
-        if (
-        !ehPrestador ||
-        solicitacao.status !== 'Em andamento'
-        ) {
-        return;
-        }
-
-        if (!descricaoSolucao.trim()) {
-        setErroConclusao(
-            'Informe a solução realizada antes de concluir o serviço.'
-        );
-        return;
-        }
-
-        try {
-        setSalvandoConclusao(true);
-
-        await api.patch(`/api/solicitacoes/${id}/status`, {
-            status: 'Concluida',
-            descricao: descricaoSolucao
-        });
-
-        // Atualizar os detalhes da solicitação.
-        const resposta = await api.get(`/api/solicitacoes/${id}`);
-        setSolicitacao(resposta.data.data);
-
-        // Atualizar o histórico.
-        const respostaHistorico = await api.get(
-            `/api/solicitacoes/${id}/historico`
-        );
-
-        setHistorico(respostaHistorico.data.data);
-        setErroHistorico('');
-
-        setDescricaoSolucao('');
-        setSucessoConclusao('Serviço concluído com sucesso!');
-        } catch (error) {
-        setErroConclusao(
-            error.response?.data?.error?.message ||
-            'Não foi possível concluir o serviço.'
-        );
-        } finally {
-        setSalvandoConclusao(false);
-        }
+    if (
+      !ehPrestador ||
+      solicitacao.status !== 'Em andamento'
+    ) {
+      return;
     }
 
+    if (!descricaoSolucao.trim()) {
+      setErroConclusao(
+        'Informe a solução realizada antes de concluir o serviço.'
+      );
+      return;
+    }
+
+    try {
+      setSalvandoConclusao(true);
+
+      await api.patch(`/api/solicitacoes/${id}/status`, {
+        status: 'Concluida',
+        descricao: descricaoSolucao
+      });
+
+      const resposta = await api.get(`/api/solicitacoes/${id}`);
+      setSolicitacao(resposta.data.data);
+
+      const respostaHistorico = await api.get(
+        `/api/solicitacoes/${id}/historico`
+      );
+
+      setHistorico(respostaHistorico.data.data);
+      setErroHistorico('');
+
+      setDescricaoSolucao('');
+      setSucessoConclusao('Serviço concluído com sucesso!');
+    } catch (error) {
+      setErroConclusao(
+        error.response?.data?.error?.message ||
+        'Não foi possível concluir o serviço.'
+      );
+    } finally {
+      setSalvandoConclusao(false);
+    }
+  }
+
+  // Registrar a avaliação do serviço pelo morador.
+  async function avaliarServico() {
+    setErroAvaliacao('');
+    setSucessoAvaliacao('');
+
+    if (!ehMorador || solicitacao.status !== 'Concluida') {
+      return;
+    }
+
+    if (!notaAvaliacao) {
+      setErroAvaliacao('Selecione uma nota para o serviço.');
+      return;
+    }
+
+    try {
+      setSalvandoAvaliacao(true);
+
+      await api.patch(`/api/solicitacoes/${id}/aceitar`, {
+        nota: Number(notaAvaliacao),
+        comentario: comentarioAvaliacao
+      });
+
+      // Atualizar os detalhes após a avaliação.
+      const resposta = await api.get(`/api/solicitacoes/${id}`);
+      setSolicitacao(resposta.data.data);
+
+      // Atualizar o histórico.
+      const respostaHistorico = await api.get(
+        `/api/solicitacoes/${id}/historico`
+      );
+
+      setHistorico(respostaHistorico.data.data);
+      setErroHistorico('');
+
+      setNotaAvaliacao('');
+      setComentarioAvaliacao('');
+      setSucessoAvaliacao('Avaliação registrada com sucesso!');
+    } catch (error) {
+      setErroAvaliacao(
+        error.response?.data?.erro ||
+        error.response?.data?.error?.message ||
+        'Não foi possível registrar a avaliação.'
+      );
+    } finally {
+      setSalvandoAvaliacao(false);
+    }
+  }
 
   // Atribuir ou trocar o prestador.
   async function atribuirPrestador() {
@@ -280,7 +332,6 @@ export default function SolicitacaoDetalhes() {
       return;
     }
 
-    // Impedir a atribuição do mesmo prestador.
     if (
       prestadorAtualId !== null &&
       String(novoPrestador) === String(prestadorAtualId)
@@ -291,7 +342,6 @@ export default function SolicitacaoDetalhes() {
       return;
     }
 
-    // Verificar se já existe um prestador atribuído.
     const jaPossuiPrestador = prestadorAtualId !== null;
 
     try {
@@ -413,82 +463,157 @@ export default function SolicitacaoDetalhes() {
 
         {/* Atualização de status pelo prestador */}
         {ehPrestador && solicitacao.status === 'Atribuida' && (
-        <div style={{ marginTop: '15px', marginBottom: '15px' }}>
-            <p>
-            Esta solicitação está atribuída a você
-            </p>
+          <div style={{ marginTop: '15px', marginBottom: '15px' }}>
+            <p>Esta solicitação está atribuída a você</p>
 
             <button
-            onClick={alterarStatus}
-            disabled={salvandoStatus}
+              onClick={alterarStatus}
+              disabled={salvandoStatus}
             >
-            {salvandoStatus
-                ? 'Atualizando...'
-                : 'Iniciar serviço'}
+              {salvandoStatus ? 'Atualizando...' : 'Iniciar serviço'}
             </button>
 
             {erroStatus && (
-            <p style={{ color: 'red' }}>{erroStatus}</p>
+              <p style={{ color: 'red' }}>{erroStatus}</p>
             )}
 
             {sucessoStatus && (
-            <p style={{ color: 'green' }}>{sucessoStatus}</p>
+              <p style={{ color: 'green' }}>{sucessoStatus}</p>
             )}
-        </div>
+          </div>
         )}
-        
+
         {/* Registro da conclusão pelo prestador */}
         {ehPrestador && solicitacao.status === 'Em andamento' && (
-            <div
+          <div
             style={{
-                marginTop: '20px',
-                marginBottom: '20px',
-                padding: '15px',
-                border: '1px solid #cccccc',
-                borderRadius: '8px'
+              marginTop: '20px',
+              marginBottom: '20px',
+              padding: '15px',
+              border: '1px solid #cccccc',
+              borderRadius: '8px'
             }}
-            >
+          >
             <h3>Concluir serviço</h3>
 
             <p>
-                Informe a solução realizada para registrar a conclusão
-                desta solicitação.
+              Informe a solução realizada para registrar a conclusão
+              desta solicitação.
             </p>
 
             <textarea
-                value={descricaoSolucao}
-                onChange={(e) => setDescricaoSolucao(e.target.value)}
-                placeholder="Descreva a solução realizada..."
-                rows={4}
-                style={{
+              value={descricaoSolucao}
+              onChange={(e) => setDescricaoSolucao(e.target.value)}
+              placeholder="Descreva a solução realizada..."
+              rows={4}
+              style={{
                 width: '100%',
                 padding: '10px',
                 marginTop: '10px',
                 marginBottom: '10px',
                 boxSizing: 'border-box',
                 resize: 'vertical'
-                }}
+              }}
             />
 
             <button
-                onClick={concluirServico}
-                disabled={salvandoConclusao || !descricaoSolucao.trim()}
+              onClick={concluirServico}
+              disabled={salvandoConclusao || !descricaoSolucao.trim()}
             >
-                {salvandoConclusao
+              {salvandoConclusao
                 ? 'Concluindo...'
                 : 'Concluir serviço'}
             </button>
 
             {erroConclusao && (
-                <p style={{ color: 'red' }}>{erroConclusao}</p>
+              <p style={{ color: 'red' }}>{erroConclusao}</p>
             )}
 
             {sucessoConclusao && (
-                <p style={{ color: 'green' }}>{sucessoConclusao}</p>
+              <p style={{ color: 'green' }}>{sucessoConclusao}</p>
             )}
-            </div>
+          </div>
         )}
 
+        {/* Avaliação do serviço pelo morador */}
+        {ehMorador && solicitacao.status === 'Concluida' && (
+          <div
+            style={{
+              marginTop: '20px',
+              marginBottom: '20px',
+              padding: '15px',
+              border: '1px solid #cccccc',
+              borderRadius: '8px'
+            }}
+          >
+            <h3>Avaliar serviço</h3>
+
+            <p>
+              O serviço foi concluído. Informe sua nota e, se desejar,
+              deixe um comentário sobre o atendimento.
+            </p>
+
+            <label>
+              <strong>Nota:</strong>
+            </label>
+
+            <select
+              value={notaAvaliacao}
+              onChange={(e) => setNotaAvaliacao(e.target.value)}
+              style={{
+                display: 'block',
+                marginTop: '8px',
+                marginBottom: '15px',
+                padding: '8px'
+              }}
+            >
+              <option value="">Selecione uma nota</option>
+              <option value="1">1 - Muito ruim</option>
+              <option value="2">2 - Ruim</option>
+              <option value="3">3 - Regular</option>
+              <option value="4">4 - Bom</option>
+              <option value="5">5 - Muito bom</option>
+            </select>
+
+            <label>
+              <strong>Comentário (opcional):</strong>
+            </label>
+
+            <textarea
+              value={comentarioAvaliacao}
+              onChange={(e) => setComentarioAvaliacao(e.target.value)}
+              placeholder="Escreva um comentário sobre o serviço..."
+              rows={4}
+              style={{
+                display: 'block',
+                width: '100%',
+                padding: '10px',
+                marginTop: '8px',
+                marginBottom: '10px',
+                boxSizing: 'border-box',
+                resize: 'vertical'
+              }}
+            />
+
+            <button
+              onClick={avaliarServico}
+              disabled={salvandoAvaliacao || !notaAvaliacao}
+            >
+              {salvandoAvaliacao
+                ? 'Enviando avaliação...'
+                : 'Enviar avaliação'}
+            </button>
+
+            {erroAvaliacao && (
+              <p style={{ color: 'red' }}>{erroAvaliacao}</p>
+            )}
+          </div>
+        )}
+
+        {/* Mensagem de sucesso fora do formulário, pois ele desaparece após a avaliação */}
+        {sucessoAvaliacao && (
+          <p style={{ color: 'green' }}>{sucessoAvaliacao}</p>
+        )}
 
         {/* Prioridade */}
         <div style={{ marginTop: '15px', marginBottom: '15px' }}>

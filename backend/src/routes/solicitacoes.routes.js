@@ -1279,7 +1279,7 @@ router.patch(
           Number(id),
           usuarioId,
           tipoStatusId,
-          "Solicitação aceita pelo morador e avaliação registrada. Status: Concluida -> Aceita.",
+          "Avaliação registrada pelo morador.",
         ]
       );
 
