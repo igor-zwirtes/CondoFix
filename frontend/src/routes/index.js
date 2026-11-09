@@ -10,6 +10,7 @@ import PrestadorServico from '../pages/PRESTADOR_SERVICO';
 import PrivateRoute from './PrivateRoute';
 import Solicitacoes from '../pages/Solicitacoes';
 import SolicitacaoDetalhes from '../pages/SolicitacaoDetalhes';
+import Usuarios from '../pages/Usuarios';
 
 export default function AppRoutes() {
   return (
@@ -24,6 +25,7 @@ export default function AppRoutes() {
 
       <Route element={<PrivateRoute allowedRoles={['ADMIN']} />}>
         <Route path="/admin" element={<Admin />} />
+        <Route path="/usuarios" element={<Usuarios />} />
       </Route>
 
       <Route element={<PrivateRoute allowedRoles={['ADMINISTRADOR']} />}>
@@ -37,6 +39,7 @@ export default function AppRoutes() {
       <Route element={<PrivateRoute allowedRoles={['PRESTADOR_SERVICO']} />}>
         <Route path="/prestador_servico" element={<PrestadorServico />} />
       </Route>
+      
     </Routes>
   );
 }

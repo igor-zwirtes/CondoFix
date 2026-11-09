@@ -29,6 +29,10 @@ export default function PainelAdmin() {
         Ver solicitações
       </button>
 
+      <button onClick={() => navigate('/usuarios')}>
+        Gerenciar usuários
+      </button>
+
       <button onClick={handleLogout}>Sair</button>
     </div>
   );
