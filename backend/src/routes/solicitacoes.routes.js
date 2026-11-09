@@ -227,7 +227,9 @@ router.get(
           s.usrid AS solicitante_id,
           solicitante.usrnam AS solicitante,
           s.pvdid AS prestador_id,
-          prestador.usrnam AS prestador
+          prestador.usrnam AS prestador,
+          a.evascr AS nota_avaliacao,
+          a.evanot AS comentario_avaliacao
         FROM "SOLICITACOES" s
         JOIN "STATUS_SOLICITACAO" st
           ON st.stsid = s.stsid
@@ -239,6 +241,8 @@ router.get(
           ON solicitante.usrid = s.usrid
         LEFT JOIN "USUARIOS" prestador
           ON prestador.usrid = s.pvdid
+        LEFT JOIN "AVALIACOES" a
+          ON a.soid = s.soid
         WHERE s.soid = $1
       `;
 

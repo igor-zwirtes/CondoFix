@@ -40,6 +40,10 @@ export default function SolicitacaoDetalhes() {
   const [erroStatus, setErroStatus] = useState('');
   const [sucessoStatus, setSucessoStatus] = useState('');
 
+  const [salvandoCancelamento, setSalvandoCancelamento] = useState(false);
+  const [erroCancelamento, setErroCancelamento] = useState('');
+  const [sucessoCancelamento, setSucessoCancelamento] = useState('');
+
   const [descricaoSolucao, setDescricaoSolucao] = useState('');
   const [salvandoConclusao, setSalvandoConclusao] = useState(false);
   const [erroConclusao, setErroConclusao] = useState('');
@@ -220,6 +224,50 @@ export default function SolicitacaoDetalhes() {
       setSalvandoStatus(false);
     }
   }
+
+  // Cancelar a solicitação.
+    async function cancelarSolicitacao() {
+    setErroCancelamento('');
+    setSucessoCancelamento('');
+
+    if (
+        !['Aberta', 'Atribuida'].includes(solicitacao.status) ||
+        (!ehMorador && !ehAdministrador)
+    ) {
+        return;
+    }
+
+    const confirmar = window.confirm(
+        'Tem certeza de que deseja cancelar esta solicitação?'
+    );
+
+    if (!confirmar) {
+        return;
+    }
+
+    try {
+        setSalvandoCancelamento(true);
+
+        await api.patch(`/api/solicitacoes/${id}/cancelar`);
+
+        const resposta = await api.get(`/api/solicitacoes/${id}`);
+        setSolicitacao(resposta.data.data);
+
+        const respostaHistorico = await api.get(
+        `/api/solicitacoes/${id}/historico`
+        );
+        setHistorico(respostaHistorico.data.data);
+
+        setSucessoCancelamento('Solicitação cancelada com sucesso!');
+    } catch (error) {
+        setErroCancelamento(
+        error.response?.data?.error?.message ||
+        'Não foi possível cancelar a solicitação.'
+        );
+    } finally {
+        setSalvandoCancelamento(false);
+    }
+    }
 
   // Registrar a conclusão do serviço.
   async function concluirServico() {
@@ -460,6 +508,44 @@ export default function SolicitacaoDetalhes() {
         <p>
           <strong>Status:</strong> {solicitacao.status}
         </p>
+
+        {/* Cancelamento de solicitação */}
+        {(ehMorador || ehAdministrador) &&
+        ['Aberta', 'Atribuida'].includes(solicitacao.status) && (
+            <div style={{ marginTop: '15px', marginBottom: '15px' }}>
+            <button
+                onClick={cancelarSolicitacao}
+                disabled={salvandoCancelamento}
+            >
+                {salvandoCancelamento ? 'Cancelando...' : 'Cancelar solicitação'}
+            </button>
+
+            {erroCancelamento && (
+                <p style={{ color: 'red' }}>{erroCancelamento}</p>
+            )}
+
+            {sucessoCancelamento && (
+                <p style={{ color: 'green' }}>{sucessoCancelamento}</p>
+            )}
+            </div>
+        )}
+
+        {/* Exibir avaliação registrada pelo morador */}
+        {solicitacao.nota_avaliacao != null && (
+        <div style={{ marginTop: '15px', marginBottom: '15px' }}>
+            <p>
+            <strong>Avaliação do serviço:</strong>{' '}
+            {solicitacao.nota_avaliacao}/5
+            </p>
+
+            {solicitacao.comentario_avaliacao && (
+            <p>
+                <strong>Comentário:</strong>{' '}
+                {solicitacao.comentario_avaliacao}
+            </p>
+            )}
+        </div>
+        )}
 
         {/* Atualização de status pelo prestador */}
         {ehPrestador && solicitacao.status === 'Atribuida' && (
