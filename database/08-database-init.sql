@@ -276,6 +276,13 @@ FROM (
          TIMESTAMP '2026-01-01 10:30:00'),
 
         ('morador@condofix.local',
+        'Vazamento na pia',
+        'morador@condofix.local',
+        'Status',
+        'Avaliação registrada pelo morador.',
+        TIMESTAMP '2026-01-01 10:35:00'),
+
+        ('morador@condofix.local',
          'Lampada queimada',
          'morador@condofix.local',
          'Criacao',
@@ -384,6 +391,17 @@ WHERE u.usreml = 'morador@condofix.local'
   AND s.sotit = 'Vazamento na pia'
   AND st.stsnom = 'Concluida'
 ON CONFLICT (soid) DO NOTHING;
+
+UPDATE "SOLICITACOES" s
+SET stsid = st.stsid
+FROM "STATUS_SOLICITACAO" st
+WHERE s.sotit = 'Vazamento na pia'
+  AND st.stsnom = 'Aceita'
+  AND EXISTS (
+      SELECT 1
+      FROM "AVALIACOES" a
+      WHERE a.soid = s.soid
+  );
 
 
 COMMIT;

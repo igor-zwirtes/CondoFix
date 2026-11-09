@@ -211,7 +211,7 @@ BEGIN
     FROM "STATUS_SOLICITACAO"
     WHERE stsid = NEW.stsid;
 
-    IF v_status IN ('Concluida', 'Finalizada', 'Cancelada') THEN
+    IF v_status IN ('Concluida', 'Aceita' ,'Finalizada', 'Cancelada') THEN
         -- Registra a data de fechamento apenas na transição
         IF OLD.stsid IS DISTINCT FROM NEW.stsid THEN
             NEW.socls := CURRENT_TIMESTAMP;
