@@ -241,6 +241,21 @@ async function main() {
     const categoriaId = categoria.rows[0].catid;
     const prestadorId = prestador.rows[0].usrid;
 
+    const apartamentoMaria = await pool.query(
+      `SELECT m.aptid
+      FROM "MORADORES" m
+      JOIN "USUARIOS" u ON u.usrid = m.usrid
+      WHERE u.usreml = $1`,
+      [contas.maria.email]
+    );
+
+    exigir(
+      apartamentoMaria.rows.length === 1,
+      "Maria deve estar vinculada a exatamente um apartamento."
+    );
+
+    const apartamentoIdMaria = apartamentoMaria.rows[0].aptid;
+
     // VALIDAÇÃO — dados enviados pelo cliente.
 
     await verificar(
@@ -822,6 +837,495 @@ async function main() {
         requisicao(
           "PATCH",
           `/solicitacoes/${solicitacaoId}/cancelar`,
+          "morador"
+        )
+    );
+
+    await verificar(
+      "Solicitação finalizada não pode ser reaberta",
+      409,
+      () =>
+        requisicao(
+          "PATCH",
+          `/solicitacoes/${solicitacaoId}/reabrir`,
+          "morador"
+        )
+    );
+
+        // 11. Reabertura de solicitação.
+
+    const tituloReabertura =
+      `Teste de reabertura ${new Date().toISOString()}`;
+
+    const criadaReabertura = await verificar(
+      "João cria uma segunda solicitação para testar reabertura",
+      201,
+      () =>
+        requisicao("POST", "/solicitacoes", "morador", {
+          titulo: tituloReabertura,
+          descricao: "Solicitação criada para testar o fluxo de reabertura.",
+          apartamentoId,
+          categoriaId,
+        }),
+      (d) =>
+        exigir(
+          d?.success === true && d?.data?.id,
+          "Resposta de criação não contém data.id."
+        )
+    );
+
+    const solicitacaoReaberturaId = criadaReabertura.data.id;
+
+    await verificar(
+      "Síndico aprova solicitação que será reaberta",
+      200,
+      () =>
+        requisicao(
+          "PATCH",
+          `/solicitacoes/${solicitacaoReaberturaId}/aprovar`,
+          "sindico"
+        )
+    );
+
+    await verificar(
+      "Admin atribui Carlos à solicitação que será reaberta",
+      200,
+      () =>
+        requisicao(
+          "PATCH",
+          `/solicitacoes/${solicitacaoReaberturaId}/prestador`,
+          "admin",
+          { prestadorId }
+        )
+    );
+
+    await verificar(
+      "Carlos inicia o serviço que será reaberto",
+      200,
+      () =>
+        requisicao(
+          "PATCH",
+          `/solicitacoes/${solicitacaoReaberturaId}/status`,
+          "prestador",
+          { status: "Em andamento" }
+        )
+    );
+
+    await verificar(
+      "Carlos conclui o serviço que será reaberto",
+      200,
+      () =>
+        requisicao(
+          "PATCH",
+          `/solicitacoes/${solicitacaoReaberturaId}/status`,
+          "prestador",
+          { status: "Concluida" }
+        )
+    );
+
+    await verificar(
+      "Maria não pode reabrir solicitação de João",
+      404,
+      () =>
+        requisicao(
+          "PATCH",
+          `/solicitacoes/${solicitacaoReaberturaId}/reabrir`,
+          "maria"
+        )
+    );
+
+    await verificar(
+      "Prestador não pode reabrir solicitação",
+      403,
+      () =>
+        requisicao(
+          "PATCH",
+          `/solicitacoes/${solicitacaoReaberturaId}/reabrir`,
+          "prestador"
+        )
+    );
+
+    const historicoAntesReabertura = await pool.query(
+      `
+      SELECT COUNT(*)::integer AS quantidade
+      FROM "ALTERACOES"
+      WHERE soid = $1
+      `,
+      [solicitacaoReaberturaId]
+    );
+
+    await verificar(
+      "João reabre a própria solicitação concluída",
+      200,
+      () =>
+        requisicao(
+          "PATCH",
+          `/solicitacoes/${solicitacaoReaberturaId}/reabrir`,
+          "morador"
+        ),
+      (d) => {
+        exigir(
+          d?.success === true,
+          "Resposta de reabertura indica falha."
+        );
+
+        exigir(
+          d?.data?.statusAtual === "Em andamento",
+          "A resposta não informa o novo status Em andamento."
+        );
+      }
+    );
+
+    await verificar(
+      "A reabertura atualiza status, data de fechamento e histórico no banco",
+      200,
+      async () => {
+        const resultado = await pool.query(
+          `
+          SELECT
+            st.stsnom AS status,
+            s.socls,
+            (
+              SELECT COUNT(*)::integer
+              FROM "ALTERACOES" a
+              WHERE a.soid = s.soid
+            ) AS total_historico
+          FROM "SOLICITACOES" s
+          JOIN "STATUS_SOLICITACAO" st
+            ON st.stsid = s.stsid
+          WHERE s.soid = $1
+          `,
+          [solicitacaoReaberturaId]
+        );
+
+        return {
+          status: 200,
+          dados: resultado.rows[0],
+        };
+      },
+      (d) => {
+        exigir(d, "Solicitação reaberta não encontrada no banco.");
+
+        exigir(
+          d.status === "Em andamento",
+          "Status da solicitação não foi atualizado para Em andamento."
+        );
+
+        exigir(
+          d.socls === null,
+          "A data de fechamento não foi limpa na reabertura."
+        );
+
+        exigir(
+          Number(d.total_historico) >
+            Number(historicoAntesReabertura.rows[0].quantidade),
+          "A reabertura não gerou um novo registro no histórico."
+        );
+      }
+    );
+
+    await verificar(
+      "João consulta a solicitação após a reabertura",
+      200,
+      () =>
+        requisicao(
+          "GET",
+          `/solicitacoes/${solicitacaoReaberturaId}`,
+          "morador"
+        )
+    );
+
+    await verificar(
+      "João consulta o histórico após a reabertura",
+      200,
+      () =>
+        requisicao(
+          "GET",
+          `/solicitacoes/${solicitacaoReaberturaId}/historico`,
+          "morador"
+        )
+    );
+
+        // 12. Cancelamento de solicitações.
+
+    const criadaCancelamento = await verificar(
+      "João cria uma solicitação para testar cancelamento",
+      201,
+      () =>
+        requisicao("POST", "/solicitacoes", "morador", {
+          titulo: `Teste de cancelamento ${new Date().toISOString()}`,
+          descricao: "Solicitação criada para testar cancelamento.",
+          apartamentoId,
+          categoriaId,
+        }),
+      (d) =>
+        exigir(
+          d?.success === true && d?.data?.id,
+          "Resposta de criação não contém data.id."
+        )
+    );
+
+    const solicitacaoCancelamentoId = criadaCancelamento.data.id;
+
+    await verificar(
+      "Maria não pode cancelar solicitação de João",
+      404,
+      () =>
+        requisicao(
+          "PATCH",
+          `/solicitacoes/${solicitacaoCancelamentoId}/cancelar`,
+          "maria"
+        )
+    );
+
+    await verificar(
+      "Prestador não pode cancelar solicitação",
+      403,
+      () =>
+        requisicao(
+          "PATCH",
+          `/solicitacoes/${solicitacaoCancelamentoId}/cancelar`,
+          "prestador"
+        )
+    );
+
+    const historicoAntesCancelamento = await pool.query(
+      `
+      SELECT COUNT(*)::integer AS quantidade
+      FROM "ALTERACOES"
+      WHERE soid = $1
+      `,
+      [solicitacaoCancelamentoId]
+    );
+
+    await verificar(
+      "João cancela a própria solicitação aberta",
+      200,
+      () =>
+        requisicao(
+          "PATCH",
+          `/solicitacoes/${solicitacaoCancelamentoId}/cancelar`,
+          "morador"
+        ),
+      (d) => {
+        exigir(d?.success === true, "Cancelamento não foi confirmado.");
+
+        exigir(
+          d?.data?.status === "Cancelada",
+          "Resposta não informa o status Cancelada."
+        );
+      }
+    );
+
+    await verificar(
+      "Cancelamento atualiza status e histórico no banco",
+      200,
+      async () => {
+        const resultado = await pool.query(
+          `
+          SELECT
+            st.stsnom AS status,
+            s.socls,
+            (
+              SELECT COUNT(*)::integer
+              FROM "ALTERACOES" a
+              WHERE a.soid = s.soid
+            ) AS total_historico,
+            EXISTS (
+              SELECT 1
+              FROM "ALTERACOES" a
+              JOIN "TIPOS_ALTERACAO" t ON t.typid = a.typid
+              WHERE a.soid = s.soid
+                AND t.typnom = 'Status'
+                AND a.altdcp ILIKE '%Cancelada%'
+            ) AS tem_historico_cancelamento
+          FROM "SOLICITACOES" s
+          JOIN "STATUS_SOLICITACAO" st ON st.stsid = s.stsid
+          WHERE s.soid = $1
+          `,
+          [solicitacaoCancelamentoId]
+        );
+
+        return {
+          status: 200,
+          dados: resultado.rows[0],
+        };
+      },
+      (d) => {
+        exigir(d, "Solicitação cancelada não encontrada no banco.");
+
+        exigir(
+          d.status === "Cancelada",
+          "Status não foi atualizado para Cancelada."
+        );
+
+        exigir(
+          d.socls !== null,
+          "Data de fechamento não foi preenchida."
+        );
+
+        exigir(
+          Number(d.total_historico) >
+            Number(historicoAntesCancelamento.rows[0].quantidade),
+          "Cancelamento não gerou registro no histórico."
+        );
+
+        exigir(
+          d.tem_historico_cancelamento,
+          "Histórico não registra o cancelamento."
+        );
+      }
+    );
+
+    await verificar(
+      "João não pode cancelar novamente a solicitação",
+      409,
+      () =>
+        requisicao(
+          "PATCH",
+          `/solicitacoes/${solicitacaoCancelamentoId}/cancelar`,
+          "morador"
+        )
+    );
+
+    await verificar(
+      "Administrador não pode cancelar novamente a solicitação",
+      409,
+      () =>
+        requisicao(
+          "PATCH",
+          `/solicitacoes/${solicitacaoCancelamentoId}/cancelar`,
+          "admin"
+        )
+    );
+
+    await verificar(
+      "João consulta a solicitação cancelada",
+      200,
+      () =>
+        requisicao(
+          "GET",
+          `/solicitacoes/${solicitacaoCancelamentoId}`,
+          "morador"
+        )
+    );
+
+    await verificar(
+      "João consulta o histórico da solicitação cancelada",
+      200,
+      () =>
+        requisicao(
+          "GET",
+          `/solicitacoes/${solicitacaoCancelamentoId}/historico`,
+          "morador"
+        )
+    );
+
+    const criadaCancelamentoAdmin = await verificar(
+      "Maria cria uma solicitação para testar cancelamento administrativo",
+      201,
+      () =>
+        requisicao("POST", "/solicitacoes", "maria", {
+          titulo: `Teste de cancelamento administrativo ${Date.now()}`,
+          descricao: "Solicitação criada para testar cancelamento pelo admin.",
+          apartamentoId: apartamentoIdMaria,
+          categoriaId,
+        }),
+      (d) =>
+        exigir(
+          d?.success === true && d?.data?.id,
+          "Resposta de criação não contém data.id."
+        )
+    );
+
+    await verificar(
+      "Administrador cancela solicitação de outro morador",
+      200,
+      () =>
+        requisicao(
+          "PATCH",
+          `/solicitacoes/${criadaCancelamentoAdmin.data.id}/cancelar`,
+          "admin"
+        )
+    );
+
+    const criadaCancelamentoSindico = await verificar(
+      "Maria cria outra solicitação para testar cancelamento pelo síndico",
+      201,
+      () =>
+        requisicao("POST", "/solicitacoes", "maria", {
+          titulo: `Teste de cancelamento pelo sindico ${Date.now()}`,
+          descricao: "Solicitação criada para testar cancelamento pelo síndico.",
+          apartamentoId: apartamentoIdMaria,
+          categoriaId,
+        }),
+      (d) =>
+        exigir(
+          d?.success === true && d?.data?.id,
+          "Resposta de criação não contém data.id."
+        )
+    );
+
+    await verificar(
+      "Síndico cancela solicitação de outro morador",
+      200,
+      () =>
+        requisicao(
+          "PATCH",
+          `/solicitacoes/${criadaCancelamentoSindico.data.id}/cancelar`,
+          "sindico"
+        )
+    );
+
+        const criadaAtribuida = await verificar(
+      "João cria solicitação para testar cancelamento após atribuição",
+      201,
+      () =>
+        requisicao("POST", "/solicitacoes", "morador", {
+          titulo: `Teste de cancelamento atribuído ${Date.now()}`,
+          descricao: "Solicitação para testar cancelamento após atribuição.",
+          apartamentoId,
+          categoriaId,
+        }),
+      (d) =>
+        exigir(
+          d?.success === true && d?.data?.id,
+          "Resposta de criação não contém data.id."
+        )
+    );
+
+    const solicitacaoAtribuidaId = criadaAtribuida.data.id;
+
+    await verificar(
+      "Síndico aprova solicitação para teste de cancelamento atribuído",
+      200,
+      () =>
+        requisicao(
+          "PATCH",
+          `/solicitacoes/${solicitacaoAtribuidaId}/aprovar`,
+          "sindico"
+        )
+    );
+
+    await verificar(
+      "Admin atribui prestador à solicitação",
+      200,
+      () =>
+        requisicao(
+          "PATCH",
+          `/solicitacoes/${solicitacaoAtribuidaId}/prestador`,
+          "admin",
+          { prestadorId }
+        )
+    );
+
+    await verificar(
+      "João cancela solicitação atribuída",
+      200,
+      () =>
+        requisicao(
+          "PATCH",
+          `/solicitacoes/${solicitacaoAtribuidaId}/cancelar`,
           "morador"
         )
     );
