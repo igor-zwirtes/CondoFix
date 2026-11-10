@@ -13,7 +13,21 @@ router.get("/resumo", async (req, res, next) => {
     const [resumo, status] = await Promise.all([
       pool.query(`
         SELECT
-          COUNT(*)::integer AS total_solicitacoes,
+          COUNT(s.soid)::integer AS total_solicitacoes,
+          (COUNT(s.soid) FILTER (
+            WHERE st.stsnom = 'Aberta'
+          ))::integer AS abertas,
+          (COUNT(s.soid) FILTER (
+            WHERE st.stsnom NOT IN (
+              'Aberta', 'Concluida', 'Finalizada', 'Cancelada'
+            )
+          ))::integer AS pendentes,
+          (COUNT(s.soid) FILTER (
+            WHERE st.stsnom IN ('Concluida', 'Finalizada')
+          ))::integer AS concluidas,
+          (COUNT(s.soid) FILTER (
+            WHERE st.stsnom = 'Cancelada'
+          ))::integer AS canceladas,
           (
             SELECT COUNT(*)::integer
             FROM "USUARIOS"
@@ -23,7 +37,9 @@ router.get("/resumo", async (req, res, next) => {
             SELECT ROUND(AVG(evascr)::numeric, 2)
             FROM "AVALIACOES"
           ) AS avaliacao_media
-        FROM "SOLICITACOES"
+        FROM "SOLICITACOES" s
+        JOIN "STATUS_SOLICITACAO" st
+          ON st.stsid = s.stsid
       `),
 
       pool.query(`
@@ -44,6 +60,10 @@ router.get("/resumo", async (req, res, next) => {
       success: true,
       data: {
         totalSolicitacoes: dados.total_solicitacoes,
+        solicitacoesAbertas: dados.abertas,
+        solicitacoesPendentes: dados.pendentes,
+        solicitacoesConcluidas: dados.concluidas,
+        solicitacoesCanceladas: dados.canceladas,
         usuariosAtivos: dados.usuarios_ativos,
         avaliacaoMedia: dados.avaliacao_media,
         solicitacoesPorStatus: status.rows,
@@ -72,6 +92,88 @@ router.get("/categorias", async (req, res, next) => {
     return res.status(200).json({
       success: true,
       data: resultado.rows,
+    });
+  } catch (error) {
+    next(error);
+  }
+});
+
+// GET /api/dashboard/prioridades
+router.get("/prioridades", async (req, res, next) => {
+  try {
+    const resultado = await pool.query(`
+      SELECT
+        p.priid AS id,
+        p.prinom AS prioridade,
+        COUNT(s.soid)::integer AS quantidade,
+        (COUNT(s.soid) FILTER (
+          WHERE st.stsnom = 'Aberta'
+        ))::integer AS abertas,
+        (COUNT(s.soid) FILTER (
+          WHERE st.stsnom NOT IN (
+            'Aberta', 'Concluida', 'Finalizada', 'Cancelada'
+          )
+        ))::integer AS pendentes
+      FROM "PRIORIDADES_SOLICITACAO" p
+      LEFT JOIN "SOLICITACOES" s
+        ON s.priid = p.priid
+      LEFT JOIN "STATUS_SOLICITACAO" st
+        ON st.stsid = s.stsid
+      GROUP BY p.priid, p.prinom
+      ORDER BY p.priid
+    `);
+
+    return res.status(200).json({
+      success: true,
+      data: resultado.rows,
+    });
+  } catch (error) {
+    next(error);
+  }
+});
+
+// GET /api/dashboard/prestadores
+router.get("/prestadores", async (req, res, next) => {
+  try {
+    const resultado = await pool.query(`
+      SELECT
+        prestador_id AS id,
+        nome_prestador AS nome,
+        empresa,
+        total_atribuido::integer AS total_atribuido,
+        total_concluido::integer AS total_concluido,
+        total_em_andamento::integer AS total_em_andamento,
+        total_pendente::integer AS total_pendente,
+        total_cancelado::integer AS total_cancelado,
+        taxa_conclusao_pct
+      FROM "VW_DESEMPENHO_PRESTADORES"
+      ORDER BY total_concluido DESC, nome_prestador
+    `);
+
+    const prestadores = resultado.rows.map((p) => ({
+      id: p.id,
+      nome: p.nome,
+      empresa: p.empresa,
+      totalAtribuido: p.total_atribuido,
+      totalConcluido: p.total_concluido,
+      totalEmAndamento: p.total_em_andamento,
+      totalPendente: p.total_pendente,
+      totalCancelado: p.total_cancelado,
+      // Solicitações Aceita/Faturada: serviço executado, mas ainda não
+      // finalizado administrativamente (não entram nas outras colunas).
+      totalEmFechamento:
+        p.total_atribuido -
+        p.total_concluido -
+        p.total_em_andamento -
+        p.total_pendente -
+        p.total_cancelado,
+      taxaConclusao:
+        p.taxa_conclusao_pct === null ? null : Number(p.taxa_conclusao_pct),
+    }));
+
+    return res.status(200).json({
+      success: true,
+      data: prestadores,
     });
   } catch (error) {
     next(error);

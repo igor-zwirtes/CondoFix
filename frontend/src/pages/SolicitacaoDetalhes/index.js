@@ -493,6 +493,16 @@ export default function SolicitacaoDetalhes() {
             Painel
           </button>
 
+          {ehAdministrador && (
+            <button
+              className="detalhes-sidebar-link"
+              onClick={() => navigate('/dashboard')}
+            >
+              <span>▥</span>
+              Dashboard
+            </button>
+          )}
+
           <button
             className="detalhes-sidebar-link active"
             onClick={() => navigate('/solicitacoes')}

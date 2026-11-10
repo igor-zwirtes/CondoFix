@@ -19,6 +19,8 @@ export default function Solicitacoes() {
   const ehPrestador = dadosUsuario.papeis?.includes('PRESTADOR_SERVICO');
 
   const ehAdmin = dadosUsuario.papeis?.includes('ADMIN');
+  
+  const ehAdministrador = dadosUsuario.papeis?.includes('ADMINISTRADOR');
 
   const [solicitacoes, setSolicitacoes] = useState([]);
   const [carregando, setCarregando] = useState(true);
@@ -148,6 +150,16 @@ export default function Solicitacoes() {
             <span>▦</span>
             Painel
           </button>
+
+          {(ehAdmin || ehAdministrador) && (
+            <button
+              className="solicitacoes-sidebar-link"
+              onClick={() => navigate('/dashboard')}
+            >
+              <span>▥</span>
+              Dashboard
+            </button>
+          )}
 
           <button className="solicitacoes-sidebar-link active">
             <span>▤</span>

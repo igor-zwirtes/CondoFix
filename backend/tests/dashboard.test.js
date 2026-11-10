@@ -167,6 +167,8 @@ describe("Dashboard", () => {
     const endpoints = [
       "/api/dashboard/resumo",
       "/api/dashboard/categorias",
+      "/api/dashboard/prioridades",
+      "/api/dashboard/prestadores",
       "/api/dashboard/faturamento",
       "/api/dashboard/recentes",
     ];
@@ -269,6 +271,36 @@ describe("Dashboard", () => {
 
       expect(status.some((item) => item.status === "Aberta")).toBe(true);
     });
+
+    test("deve retornar abertas, pendentes, concluídas e canceladas de forma consistente", async () => {
+      const response = await request(app)
+        .get("/api/dashboard/resumo")
+        .set("Authorization", `Bearer ${adminToken}`);
+
+      expect(response.status).toBe(200);
+
+      const dados = response.body.data;
+
+      expect(dados).toEqual(
+        expect.objectContaining({
+          solicitacoesAbertas: expect.any(Number),
+          solicitacoesPendentes: expect.any(Number),
+          solicitacoesConcluidas: expect.any(Number),
+          solicitacoesCanceladas: expect.any(Number),
+        })
+      );
+
+      expect(dados.solicitacoesAbertas).toBeGreaterThanOrEqual(
+        solicitacoesCriadas.length
+      );
+
+      expect(
+        dados.solicitacoesAbertas +
+          dados.solicitacoesPendentes +
+          dados.solicitacoesConcluidas +
+          dados.solicitacoesCanceladas
+      ).toBe(dados.totalSolicitacoes);
+    });
   });
 
   describe("Categorias", () => {
@@ -316,6 +348,83 @@ describe("Dashboard", () => {
       expect(quantidades).toEqual(
         [...quantidades].sort((a, b) => b - a)
       );
+    });
+  });
+
+    describe("Prioridades", () => {
+    test("deve retornar a quantidade de solicitações por prioridade", async () => {
+      const response = await request(app)
+        .get("/api/dashboard/prioridades")
+        .set("Authorization", `Bearer ${adminToken}`);
+
+      expect(response.status).toBe(200);
+      expect(response.body.success).toBe(true);
+      expect(response.body.data.length).toBeGreaterThan(0);
+
+      for (const item of response.body.data) {
+        expect(item).toEqual({
+          id: expect.any(Number),
+          prioridade: expect.any(String),
+          quantidade: expect.any(Number),
+          abertas: expect.any(Number),
+          pendentes: expect.any(Number),
+        });
+
+        expect(item.abertas + item.pendentes).toBeLessThanOrEqual(item.quantidade);
+      }
+    });
+
+    test("deve contabilizar as solicitações criadas", async () => {
+      const response = await request(app)
+        .get("/api/dashboard/prioridades")
+        .set("Authorization", `Bearer ${adminToken}`);
+
+      expect(response.status).toBe(200);
+
+      const total = response.body.data.reduce(
+        (soma, item) => soma + item.quantidade,
+        0
+      );
+
+      expect(total).toBeGreaterThanOrEqual(solicitacoesCriadas.length);
+    });
+  });
+
+  describe("Prestadores", () => {
+    test("deve retornar o desempenho dos prestadores", async () => {
+      const response = await request(app)
+        .get("/api/dashboard/prestadores")
+        .set("Authorization", `Bearer ${adminToken}`);
+
+      expect(response.status).toBe(200);
+      expect(response.body.success).toBe(true);
+      expect(Array.isArray(response.body.data)).toBe(true);
+
+      for (const prestador of response.body.data) {
+        expect(prestador).toEqual(
+          expect.objectContaining({
+            id: expect.any(Number),
+            nome: expect.any(String),
+            totalAtribuido: expect.any(Number),
+            totalConcluido: expect.any(Number),
+            totalEmAndamento: expect.any(Number),
+            totalPendente: expect.any(Number),
+            totalCancelado: expect.any(Number),
+            totalEmFechamento: expect.any(Number),
+          })
+        );
+
+        expect(
+          prestador.empresa === null || typeof prestador.empresa === "string"
+        ).toBe(true);
+
+        expect(
+          prestador.taxaConclusao === null ||
+            typeof prestador.taxaConclusao === "number"
+        ).toBe(true);
+
+        expect(prestador.totalEmFechamento).toBeGreaterThanOrEqual(0);
+      }
     });
   });
 

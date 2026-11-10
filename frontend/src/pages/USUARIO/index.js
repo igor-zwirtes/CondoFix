@@ -136,16 +136,6 @@ export default function PainelMorador() {
       .replace(/\s+/g, '-');
   }
 
-  const solicitacoesConcluidas = solicitacoes.filter(
-    (s) => ['Concluida', 'Finalizada', 'Aceita'].includes(s.status)
-  ).length;
-
-  const solicitacoesCanceladas = solicitacoes.filter(
-    (s) => classeStatus(s.status) === 'cancelada'
-  ).length;
-
-  const totalSolicitacoes = solicitacoes.length;
-
   const solicitacoesRecentes = solicitacoes.slice(0, 3);
 
   return (
@@ -214,32 +204,6 @@ export default function PainelMorador() {
               + Nova solicitação
             </button>
           </div>
-
-          {/* Indicadores */}
-          <section className="morador-stats">
-
-            <div className="stat-card">
-              <span className="stat-number">
-                {carregandoSolicitacoes ? '...' : totalSolicitacoes}
-              </span>
-              <span className="stat-label">Total de solicitações</span>
-            </div>
-
-            <div className="stat-card stat-card-red">
-              <span className="stat-number">
-                {carregandoSolicitacoes ? '...' : solicitacoesCanceladas}
-              </span>
-              <span className="stat-label">Canceladas</span>
-            </div>
-
-            <div className="stat-card stat-card-green">
-              <span className="stat-number">
-                {carregandoSolicitacoes ? '...' : solicitacoesConcluidas}
-              </span>
-              <span className="stat-label">Concluídas</span>
-            </div>
-
-          </section>
 
           {/* Formulário de criação */}
           {mostrarFormulario && (

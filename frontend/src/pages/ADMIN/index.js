@@ -50,6 +50,14 @@ export default function PainelAdmin() {
 
           <button
             className="admin-sidebar-link"
+            onClick={() => navigate('/dashboard')}
+          >
+            <span>▥</span>
+            Dashboard
+          </button>
+
+          <button
+            className="admin-sidebar-link"
             onClick={() => navigate('/solicitacoes')}
           >
             <span>▤</span>
@@ -116,9 +124,27 @@ export default function PainelAdmin() {
 
               <button
                 className="admin-card"
+                onClick={() => navigate('/dashboard')}
+              >
+                <div className="admin-card-icon">▥</div>
+
+                <div className="admin-card-info">
+                  <h4>Dashboard</h4>
+
+                  <p>
+                    Veja os indicadores das solicitações e o desempenho dos
+                    prestadores de serviço.
+                  </p>
+                </div>
+
+                <span className="admin-card-arrow">→</span>
+              </button>
+
+              <button
+                className="admin-card"
                 onClick={() => navigate('/usuarios')}
               >
-                <div className="admin-card-icon">♙</div>
+                <div className="admin-card-icon">◎</div>
 
                 <div className="admin-card-info">
                   <h4>Gerenciar usuários</h4>

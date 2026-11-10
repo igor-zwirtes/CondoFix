@@ -92,6 +92,14 @@ export default function Usuarios() {
 
           <button
             className="usuarios-sidebar-link"
+            onClick={() => navigate('/dashboard')}
+          >
+            <span>▥</span>
+            Dashboard
+          </button>
+
+          <button
+            className="usuarios-sidebar-link"
             onClick={() => navigate('/solicitacoes')}
           >
             <span>▤</span>

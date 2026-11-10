@@ -47,6 +47,14 @@ export default function PainelSindico() {
 
           <button
             className="sindico-sidebar-link"
+            onClick={() => navigate('/dashboard')}
+          >
+            <span>▥</span>
+            Dashboard
+          </button>
+
+          <button
+            className="sindico-sidebar-link"
             onClick={() => navigate('/solicitacoes')}
           >
             <span>▤</span>
@@ -90,6 +98,26 @@ export default function PainelSindico() {
                 onClick={() => navigate('/solicitacoes')}
               >
                 Ver solicitações
+                <span>→</span>
+              </button>
+            </div>
+
+            <div className="sindico-card">
+              <div className="sindico-card-icon">▥</div>
+
+              <div>
+                <h3>Dashboard</h3>
+                <p>
+                  Veja os indicadores das solicitações e o desempenho dos
+                  prestadores de serviço.
+                </p>
+              </div>
+
+              <button
+                className="sindico-card-button"
+                onClick={() => navigate('/dashboard')}
+              >
+                Ver dashboard
                 <span>→</span>
               </button>
             </div>
