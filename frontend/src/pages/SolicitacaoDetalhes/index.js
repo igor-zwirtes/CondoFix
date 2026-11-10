@@ -487,7 +487,7 @@ export default function SolicitacaoDetalhes() {
 
           <button
             className="detalhes-sidebar-link"
-            onClick={() => navigate('/')}
+            onClick={() => navigate('/painel')}
           >
             <span>▦</span>
             Painel
@@ -500,6 +500,16 @@ export default function SolicitacaoDetalhes() {
             <span>▤</span>
             Solicitações
           </button>
+
+          {usuario.papeis?.some((papel) => papel.toUpperCase() === 'ADMIN') && (
+            <button
+              className="detalhes-sidebar-link"
+              onClick={() => navigate('/usuarios')}
+            >
+              <span>◎</span>
+              Usuários
+            </button>
+          )}
 
           <div className="detalhes-sidebar-bottom">
             <button
