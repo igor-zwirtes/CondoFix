@@ -191,3 +191,128 @@
 .sindico-card-button:hover {
   color: #729B52;
 }
+
+
+/* Responsividade */
+@media (max-width: 768px) {
+  .sindico-layout {
+    height: 100dvh;
+    min-height: 0;
+    display: flex;
+    flex-direction: column;
+  }
+
+  /* Cabeçalho */
+  .sindico-header {
+    flex-shrink: 0;
+    height: 74px;
+    min-height: 74px;
+    padding: 0 22px;
+  }
+
+  .sindico-header-user {
+    gap: 0;
+  }
+
+  .sindico-header-user > span {
+    display: none;
+  }
+
+  /* Navegação horizontal */
+  .sindico-container {
+    flex: 1;
+    min-height: 0;
+    height: auto;
+    flex-direction: column;
+  }
+
+  .sindico-sidebar {
+    width: 100%;
+    height: auto;
+    flex-shrink: 0;
+    flex-direction: row;
+    align-items: center;
+    justify-content: space-around;
+    padding: 12px 10px;
+    gap: 6px;
+  }
+
+  .sindico-sidebar-title,
+  .sindico-sidebar-bottom {
+    display: none;
+  }
+
+  .sindico-sidebar-link {
+    flex: 1;
+    min-width: 0;
+    justify-content: center;
+    padding: 12px 6px;
+    gap: 8px;
+    font-size: 13px;
+    white-space: nowrap;
+  }
+
+  .sindico-sidebar-link span {
+    font-size: 17px;
+  }
+
+  /* Conteúdo */
+  .sindico-content {
+    flex: 1;
+    width: 100%;
+    min-width: 0;
+    min-height: 0;
+    padding: 24px 18px;
+    overflow-y: auto;
+    overflow-x: hidden;
+  }
+
+  .sindico-welcome {
+    align-items: flex-start;
+    flex-direction: column;
+    gap: 8px;
+    margin-bottom: 24px;
+  }
+
+  .sindico-welcome h2 {
+    font-size: 25px;
+  }
+
+  /* Cartões */
+  .sindico-cards {
+    grid-template-columns: minmax(0, 1fr);
+    gap: 14px;
+  }
+
+  .sindico-card {
+    width: 100%;
+    min-width: 0;
+    min-height: 190px;
+    padding: 20px;
+  }
+}
+
+@media (max-width: 380px) {
+  .sindico-header {
+    padding: 0 16px;
+  }
+
+  .sindico-sidebar {
+    padding: 10px 5px;
+    gap: 3px;
+  }
+
+  .sindico-sidebar-link {
+    gap: 4px;
+    padding: 11px 3px;
+    font-size: 11px;
+  }
+
+  .sindico-content {
+    padding: 20px 14px;
+  }
+
+  .sindico-card {
+    padding: 17px;
+  }
+}

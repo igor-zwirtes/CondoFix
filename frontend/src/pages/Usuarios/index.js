@@ -198,7 +198,6 @@ export default function Usuarios() {
                           </span>
                         </td>
 
-                        <td className="usuarios-actions">-</td>
                       </tr>
                     ))}
                   </tbody>
