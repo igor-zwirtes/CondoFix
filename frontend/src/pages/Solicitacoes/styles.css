@@ -282,35 +282,51 @@
 
 /* Responsividade */
 @media (max-width: 768px) {
+  .solicitacoes-layout {
+    height: 100dvh;
+    min-height: 0;
+    overflow: hidden;
+    display: flex;
+    flex-direction: column;
+  }
+
+  /* Cabeçalho superior */
   .solicitacoes-header {
-    padding: 0 18px;
+    flex-shrink: 0;
+    height: 74px;
+    min-height: 74px;
+    padding: 0 22px;
   }
 
-  .solicitacoes-sidebar {
-    width: 175px;
-    padding: 20px 10px;
+  .solicitacoes-header h1 {
+    font-size: 27px;
   }
 
-  .solicitacoes-content {
-    padding: 22px 16px;
+  .solicitacoes-header-user {
+    gap: 0;
   }
 
-  .solicitacoes-welcome {
-    align-items: flex-start;
-    flex-direction: column;
+  .solicitacoes-header-user > span {
+    display: none;
   }
-}
 
-@media (max-width: 520px) {
+  /* Navegação horizontal abaixo do cabeçalho */
   .solicitacoes-container {
+    flex: 1;
+    min-height: 0;
+    height: auto;
     flex-direction: column;
   }
 
   .solicitacoes-sidebar {
-    width: auto;
+    width: 100%;
+    height: auto;
+    flex-shrink: 0;
     flex-direction: row;
-    padding: 10px;
-    gap: 5px;
+    align-items: center;
+    justify-content: space-around;
+    padding: 12px 10px;
+    gap: 6px;
   }
 
   .solicitacoes-sidebar-title,
@@ -319,21 +335,74 @@
   }
 
   .solicitacoes-sidebar-link {
+    flex: 1;
+    min-width: 0;
     justify-content: center;
-    padding: 10px 6px;
-    font-size: 12px;
+    padding: 12px 6px;
+    gap: 8px;
+    font-size: 13px;
+    white-space: nowrap;
   }
 
+  .solicitacoes-sidebar-link span {
+    font-size: 17px;
+  }
+
+  /* Conteúdo abaixo da navegação */
   .solicitacoes-content {
-    padding: 20px 14px;
+    flex: 1;
+    width: 100%;
+    height: auto;
+    min-height: 0;
+    padding: 24px 18px;
+    overflow-y: auto;
+    overflow-x: hidden;
+  }
+
+  .solicitacoes-welcome {
+    align-items: flex-start;
+    flex-direction: column;
+    gap: 8px;
+  }
+
+  .solicitacoes-welcome h2 {
+    font-size: 25px;
+  }
+
+  .solicitacoes-panel {
+    flex: none;
+    width: 100%;
+    min-height: 0;
+  }
+
+  .solicitacoes-list {
+    overflow: visible;
   }
 
   .solicitacao-item {
     align-items: flex-start;
     flex-direction: column;
+    gap: 10px;
+  }
+}
+
+@media (max-width: 380px) {
+  .solicitacoes-header {
+    padding: 0 16px;
   }
 
-  .solicitacoes-header-user > span {
-    display: none;
+  .solicitacoes-sidebar {
+    padding: 10px 5px;
+    gap: 3px;
+  }
+
+  .solicitacoes-sidebar-link {
+    gap: 4px;
+    padding: 11px 3px;
+    font-size: 11px;
+  }
+
+  .solicitacoes-content {
+    padding: 20px 14px;
   }
 }

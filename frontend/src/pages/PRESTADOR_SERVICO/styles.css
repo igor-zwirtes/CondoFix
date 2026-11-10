@@ -192,3 +192,127 @@
 .prestador-card-button:hover {
   color: #729B52;
 }
+
+/* Responsividade */
+@media (max-width: 768px) {
+  .prestador-layout {
+    height: 100dvh;
+    min-height: 0;
+    display: flex;
+    flex-direction: column;
+  }
+
+  /* Cabeçalho */
+  .prestador-header {
+    flex-shrink: 0;
+    height: 74px;
+    min-height: 74px;
+    padding: 0 22px;
+  }
+
+  .prestador-header-user {
+    gap: 0;
+  }
+
+  .prestador-header-user > span {
+    display: none;
+  }
+
+  /* Navegação horizontal */
+  .prestador-container {
+    flex: 1;
+    min-height: 0;
+    height: auto;
+    flex-direction: column;
+  }
+
+  .prestador-sidebar {
+    width: 100%;
+    height: auto;
+    flex-shrink: 0;
+    flex-direction: row;
+    align-items: center;
+    justify-content: space-around;
+    padding: 12px 10px;
+    gap: 6px;
+  }
+
+  .prestador-sidebar-title,
+  .prestador-sidebar-bottom {
+    display: none;
+  }
+
+  .prestador-sidebar-link {
+    flex: 1;
+    min-width: 0;
+    justify-content: center;
+    padding: 12px 6px;
+    gap: 8px;
+    font-size: 13px;
+    white-space: nowrap;
+  }
+
+  .prestador-sidebar-link span {
+    font-size: 17px;
+  }
+
+  /* Conteúdo */
+  .prestador-content {
+    flex: 1;
+    width: 100%;
+    min-width: 0;
+    min-height: 0;
+    padding: 24px 18px;
+    overflow-y: auto;
+    overflow-x: hidden;
+  }
+
+  .prestador-welcome {
+    align-items: flex-start;
+    flex-direction: column;
+    gap: 8px;
+    margin-bottom: 24px;
+  }
+
+  .prestador-welcome h2 {
+    font-size: 25px;
+  }
+
+  /* Cartões */
+  .prestador-cards {
+    grid-template-columns: minmax(0, 1fr);
+    gap: 14px;
+  }
+
+  .prestador-card {
+    width: 100%;
+    min-width: 0;
+    min-height: 190px;
+    padding: 20px;
+  }
+}
+
+@media (max-width: 380px) {
+  .prestador-header {
+    padding: 0 16px;
+  }
+
+  .prestador-sidebar {
+    padding: 10px 5px;
+    gap: 3px;
+  }
+
+  .prestador-sidebar-link {
+    gap: 4px;
+    padding: 11px 3px;
+    font-size: 11px;
+  }
+
+  .prestador-content {
+    padding: 20px 14px;
+  }
+
+  .prestador-card {
+    padding: 17px;
+  }
+}

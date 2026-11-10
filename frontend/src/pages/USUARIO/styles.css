@@ -386,35 +386,43 @@
 
 /* Responsividade */
 @media (max-width: 768px) {
+  .morador-layout {
+    min-height: 100dvh;
+    display: flex;
+    flex-direction: column;
+  }
+
+  /* Cabeçalho */
   .morador-header {
-    padding: 0 18px;
+    flex-shrink: 0;
+    height: 74px;
+    min-height: 74px;
+    padding: 0 22px;
   }
 
-  .morador-sidebar {
-    width: 175px;
-    padding: 20px 10px;
+  .morador-header-user {
+    gap: 0;
   }
 
-  .morador-content {
-    padding: 22px 16px;
+  .morador-user-name {
+    display: none;
   }
 
-  .morador-welcome {
-    align-items: flex-start;
-    flex-direction: column;
-  }
-}
-
-@media (max-width: 520px) {
+  /* Navegação horizontal */
   .morador-container {
+    flex: 1;
+    min-height: 0;
     flex-direction: column;
   }
 
   .morador-sidebar {
-    width: auto;
+    width: 100%;
+    flex-shrink: 0;
     flex-direction: row;
-    padding: 10px;
-    gap: 5px;
+    align-items: center;
+    justify-content: space-around;
+    padding: 12px 10px;
+    gap: 6px;
   }
 
   .sidebar-title,
@@ -423,9 +431,87 @@
   }
 
   .sidebar-link {
+    flex: 1;
+    min-width: 0;
     justify-content: center;
-    padding: 10px 6px;
-    font-size: 12px;
+    padding: 12px 6px;
+    gap: 8px;
+    font-size: 13px;
+    white-space: nowrap;
+  }
+
+  .sidebar-link span {
+    font-size: 17px;
+  }
+
+  /* Conteúdo */
+  .morador-content {
+    flex: 1;
+    width: 100%;
+    min-width: 0;
+    padding: 24px 18px;
+  }
+
+  .morador-welcome {
+    align-items: flex-start;
+    flex-direction: column;
+    gap: 12px;
+  }
+
+  .morador-welcome h2 {
+    font-size: 25px;
+  }
+
+  .new-request-button {
+    max-width: 100%;
+  }
+
+  /* Indicadores */
+  .morador-stats {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 10px;
+  }
+
+  .stat-card {
+    min-height: 90px;
+    padding: 14px;
+  }
+
+  .stat-number {
+    font-size: 25px;
+  }
+
+  /* Listas */
+  .recent-item {
+    align-items: flex-start;
+    flex-direction: column;
+    gap: 10px;
+  }
+
+  /* Formulários */
+  .morador-form {
+    width: 100%;
+  }
+
+  .form-field {
+    min-width: 0;
+  }
+}
+
+@media (max-width: 380px) {
+  .morador-header {
+    padding: 0 16px;
+  }
+
+  .morador-sidebar {
+    padding: 10px 5px;
+    gap: 3px;
+  }
+
+  .sidebar-link {
+    gap: 4px;
+    padding: 11px 3px;
+    font-size: 11px;
   }
 
   .morador-content {
@@ -433,24 +519,6 @@
   }
 
   .morador-stats {
-    gap: 10px;
-  }
-
-  .stat-card {
-    padding: 14px;
-    min-height: 85px;
-  }
-
-  .stat-number {
-    font-size: 25px;
-  }
-
-  .recent-item {
-    align-items: flex-start;
-    flex-direction: column;
-  }
-
-  .morador-user-name {
-    display: none;
+    grid-template-columns: 1fr;
   }
 }
