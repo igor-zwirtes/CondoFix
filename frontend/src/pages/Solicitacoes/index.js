@@ -1,7 +1,7 @@
-
 import React, { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import api from '../../services/api';
+import './styles.css';
 
 export default function Solicitacoes() {
   const navigate = useNavigate();
@@ -10,18 +10,24 @@ export default function Solicitacoes() {
     localStorage.getItem('@CondoFix:user') || '{}'
   );
 
+  const nomeUsuario =
+    dadosUsuario.nome ||
+    dadosUsuario.usrnam ||
+    dadosUsuario.name ||
+    'Usuário';
+
   const ehPrestador = dadosUsuario.papeis?.includes('PRESTADOR_SERVICO');
+
+  const ehAdmin = dadosUsuario.papeis?.includes('ADMIN');
 
   const [solicitacoes, setSolicitacoes] = useState([]);
   const [carregando, setCarregando] = useState(true);
   const [erro, setErro] = useState('');
 
-  // Carregar solicitações ao abrir a tela.
   useEffect(() => {
     async function carregarSolicitacoes() {
       try {
         const resposta = await api.get('/api/solicitacoes');
-
         setSolicitacoes(resposta.data.data);
       } catch (error) {
         setErro(
@@ -36,111 +42,173 @@ export default function Solicitacoes() {
     carregarSolicitacoes();
   }, []);
 
-  // Formatar a data de abertura.
   function formatarData(data) {
-    if (!data) {
-      return 'Não informada';
-    }
-
+    if (!data) return 'Não informada';
     return new Date(data).toLocaleDateString('pt-BR');
   }
 
-  // Abrir os detalhes de uma solicitação.
+  function classeStatus(status = '') {
+    return status
+      .toLowerCase()
+      .normalize('NFD')
+      .replace(/[\u0300-\u036f]/g, '')
+      .replace(/\s+/g, '-');
+  }
+
+  function handleLogout() {
+    localStorage.removeItem('@CondoFix:token');
+    localStorage.removeItem('@CondoFix:user');
+    navigate('/');
+  }
+
   function handleVerDetalhes(id) {
     navigate(`/solicitacoes/${id}`);
   }
 
-  if (carregando) {
-    return <p>Carregando solicitações...</p>;
-  }
-
   return (
-    <div
-      style={{
-        maxWidth: '900px',
-        margin: '40px auto',
-        padding: '30px'
-      }}
-    >
-      <h1>CondoFix</h1>
+    <div className="solicitacoes-layout">
 
-      <h2>
-      {ehPrestador
-        ? 'Serviços atribuídos a mim'
-        : 'Solicitações de manutenção'}
-      </h2>
+      {/* Cabeçalho */}
+      <header className="solicitacoes-header">
+        <h1>CondoFix<span>.</span></h1>
 
-      {erro && (
-        <p style={{ color: 'red', marginTop: '15px' }}>
-          {erro}
-        </p>
-      )}
+        <div className="solicitacoes-header-user">
+          <span>{nomeUsuario}</span>
 
-      {!erro && solicitacoes.length === 0 && (
-        <p>
-            {ehPrestador
-            ? 'Você não possui serviços atribuídos no momento.'
-            : 'Nenhuma solicitação encontrada.'}
-        </p>
-      )}
+          <div className="solicitacoes-avatar">
+            {nomeUsuario.charAt(0).toUpperCase()}
+          </div>
+        </div>
+      </header>
 
-      <div
-        style={{
-          display: 'flex',
-          flexDirection: 'column',
-          gap: '15px',
-          marginTop: '25px'
-        }}
-      >
-        {solicitacoes.map((solicitacao) => (
-          <div
-            key={solicitacao.id}
-            style={{
-              border: '1px solid #cccccc',
-              borderRadius: '8px',
-              padding: '20px'
-            }}
+      <div className="solicitacoes-container">
+
+        {/* Menu lateral */}
+        <aside className="solicitacoes-sidebar">
+          <span className="solicitacoes-sidebar-title">MENU</span>
+
+          <button
+            className="solicitacoes-sidebar-link"
+            onClick={() => navigate('/administrador')}
           >
-            <h3>{solicitacao.titulo}</h3>
+            <span>▦</span>
+            Painel
+          </button>
 
-            {ehPrestador && (
-            <p>
-                <strong>Solicitante:</strong> {solicitacao.solicitante}
-            </p>
-            )}
+          <button className="solicitacoes-sidebar-link active">
+            <span>▤</span>
+            Solicitações
+          </button>
 
-            <p>
-              <strong>Status:</strong> {solicitacao.status}
-            </p>
-
-            <p>
-              <strong>Prioridade:</strong> {solicitacao.prioridade}
-            </p>
-
-            <p>
-              <strong>Categoria:</strong> {solicitacao.categoria}
-            </p>
-
-            <p>
-              <strong>Data de abertura:</strong>{' '}
-              {formatarData(solicitacao.data_abertura)}
-            </p>
-
+          {ehAdmin && (
             <button
-              onClick={() => handleVerDetalhes(solicitacao.id)}
+              className="solicitacoes-sidebar-link"
+              onClick={() => navigate('/usuarios')}
             >
-              Ver detalhes
+              <span>◎</span> Usuários
+            </button>
+          )}
+
+          <div className="solicitacoes-sidebar-bottom">
+            <button
+              className="solicitacoes-sidebar-link"
+              onClick={handleLogout}
+            >
+              <span>↪</span>
+              Sair
             </button>
           </div>
-        ))}
-      </div>
+        </aside>
 
-      <button
-        onClick={() => navigate(-1)}
-        style={{ marginTop: '25px' }}
-      >
-        Voltar
-      </button>
+        {/* Conteúdo principal */}
+        <main className="solicitacoes-content">
+
+          <div className="solicitacoes-welcome">
+            <div>
+              <h2>Solicitações</h2>
+
+              <p>
+                {ehPrestador
+                  ? 'Acompanhe os serviços atribuídos a você.'
+                  : 'Consulte e acompanhe suas solicitações de manutenção.'}
+              </p>
+            </div>
+          </div>
+
+          {/* Listagem */}
+          <section className="solicitacoes-panel">
+
+            <div className="solicitacoes-panel-heading">
+              <h3>
+                {ehPrestador
+                  ? 'Serviços atribuídos a mim'
+                  : 'Todas as solicitações'}
+              </h3>
+
+              <span className="solicitacoes-count">
+                {solicitacoes.length}
+                {' '}
+                {solicitacoes.length === 1 ? 'solicitação' : 'solicitações'}
+              </span>
+            </div>
+
+            {carregando ? (
+              <p className="solicitacoes-message">
+                Carregando solicitações...
+              </p>
+            ) : erro ? (
+              <p className="solicitacoes-message solicitacoes-error">
+                {erro}
+              </p>
+            ) : solicitacoes.length === 0 ? (
+              <p className="solicitacoes-message">
+                {ehPrestador
+                  ? 'Você não possui serviços atribuídos no momento.'
+                  : 'Nenhuma solicitação encontrada.'}
+              </p>
+            ) : (
+              <div className="solicitacoes-list">
+                {solicitacoes.map((solicitacao) => (
+                  <button
+                    type="button"
+                    className="solicitacao-item"
+                    key={solicitacao.id}
+                    onClick={() => handleVerDetalhes(solicitacao.id)}
+                  >
+                    <div className="solicitacao-item-info">
+                      <h4>{solicitacao.titulo}</h4>
+
+                      <span>
+                        {solicitacao.categoria}
+                        {' · '}
+                        {formatarData(solicitacao.data_abertura)}
+                      </span>
+
+                      {ehPrestador && (
+                        <span>
+                          Solicitante: {solicitacao.solicitante}
+                        </span>
+                      )}
+
+                      <span>
+                        Prioridade: {solicitacao.prioridade}
+                      </span>
+                    </div>
+
+                    <span
+                      className={`status-badge status-${classeStatus(solicitacao.status)}`}
+                    >
+                      {solicitacao.status}
+                    </span>
+                  </button>
+                ))}
+              </div>
+            )}
+
+          </section>
+
+        </main>
+      </div>
     </div>
   );
 }

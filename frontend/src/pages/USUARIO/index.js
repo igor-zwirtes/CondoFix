@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import api from '../../services/api';
+import './styles.css';
 
 export default function PainelMorador() {
   const navigate = useNavigate();
@@ -15,6 +16,7 @@ export default function PainelMorador() {
     dadosUsuario.name ||
     'Usuário';
 
+  const [solicitacoes, setSolicitacoes] = useState([]);
   const [apartamento, setApartamento] = useState(null);
   const [categorias, setCategorias] = useState([]);
 
@@ -22,13 +24,16 @@ export default function PainelMorador() {
   const [descricao, setDescricao] = useState('');
   const [categoriaId, setCategoriaId] = useState('');
 
+  const [mostrarFormulario, setMostrarFormulario] = useState(false);
   const [carregando, setCarregando] = useState(true);
+  const [carregandoSolicitacoes, setCarregandoSolicitacoes] = useState(true);
   const [enviando, setEnviando] = useState(false);
 
   const [erro, setErro] = useState('');
+  const [erroLista, setErroLista] = useState('');
   const [sucesso, setSucesso] = useState('');
 
-  // Carregar apartamento e categorias ao abrir a tela.
+  // Carregar apartamento e categorias.
   useEffect(() => {
     async function carregarOpcoes() {
       try {
@@ -47,6 +52,25 @@ export default function PainelMorador() {
     }
 
     carregarOpcoes();
+  }, []);
+
+  // Carregar solicitações do morador.
+  useEffect(() => {
+    async function carregarSolicitacoes() {
+      try {
+        const resposta = await api.get('/api/solicitacoes');
+        setSolicitacoes(resposta.data.data);
+      } catch (error) {
+        setErroLista(
+          error.response?.data?.error?.message ||
+          'Não foi possível carregar suas solicitações.'
+        );
+      } finally {
+        setCarregandoSolicitacoes(false);
+      }
+    }
+
+    carregarSolicitacoes();
   }, []);
 
   // Criar solicitação.
@@ -71,12 +95,16 @@ export default function PainelMorador() {
         categoriaId: Number(categoriaId)
       });
 
+      const resposta = await api.get('/api/solicitacoes');
+      setSolicitacoes(resposta.data.data);
+
       setSucesso('Solicitação criada com sucesso!');
 
-      // Limpar formulário após o cadastro.
       setTitulo('');
       setDescricao('');
       setCategoriaId('');
+
+      setMostrarFormulario(false);
 
     } catch (error) {
       setErro(
@@ -91,139 +119,263 @@ export default function PainelMorador() {
   function handleLogout() {
     localStorage.removeItem('@CondoFix:token');
     localStorage.removeItem('@CondoFix:user');
-
     navigate('/');
   }
 
-  if (carregando) {
-    return <p>Carregando formulário...</p>;
+  function formatarData(data) {
+    if (!data) return 'Data não informada';
+
+    return new Date(data).toLocaleDateString('pt-BR');
   }
 
+  function classeStatus(status = '') {
+    return status
+      .toLowerCase()
+      .normalize('NFD')
+      .replace(/[\u0300-\u036f]/g, '')
+      .replace(/\s+/g, '-');
+  }
+
+  const solicitacoesConcluidas = solicitacoes.filter(
+    (s) => ['Concluida', 'Finalizada', 'Aceita'].includes(s.status)
+  ).length;
+
+  const solicitacoesCanceladas = solicitacoes.filter(
+    (s) => classeStatus(s.status) === 'cancelada'
+  ).length;
+
+  const totalSolicitacoes = solicitacoes.length;
+
+  const solicitacoesRecentes = solicitacoes.slice(0, 3);
+
   return (
-    <div style={{
-      maxWidth: '700px',
-      margin: '40px auto',
-      padding: '30px'
-    }}>
+    <div className="morador-layout">
 
-      <h1>CondoFix</h1>
+      {/* Cabeçalho */}
+      <header className="morador-header">
+        <h1>CondoFix<span>.</span></h1>
 
-      <h2>Bem-vindo, {nomeUsuario}!</h2>
+        <div className="morador-header-user">
+          <span className="morador-user-name">{nomeUsuario}</span>
 
-      <button
-        onClick={() => navigate('/solicitacoes')}
-        style={{ marginBottom: '20px' }}
-      >
-        Minhas solicitações
-      </button>
-
-      <h2>Criar solicitação de manutenção</h2>
-
-      <form
-        onSubmit={handleCriarSolicitacao}
-        style={{
-          display: 'flex',
-          flexDirection: 'column',
-          gap: '15px'
-        }}
-      >
-
-        <div>
-          <label>Título</label>
-
-          <input
-            type="text"
-            value={titulo}
-            onChange={(e) => setTitulo(e.target.value)}
-            maxLength={255}
-            placeholder="Ex.: Vazamento na cozinha"
-            required
-            style={{ width: '100%', padding: '10px' }}
-          />
+          <div className="morador-avatar">
+            {nomeUsuario.charAt(0).toUpperCase()}
+          </div>
         </div>
+      </header>
 
-        <div>
-          <label>Descrição do problema</label>
+      <div className="morador-container">
 
-          <textarea
-            value={descricao}
-            onChange={(e) => setDescricao(e.target.value)}
-            placeholder="Descreva o problema encontrado..."
-            required
-            rows={5}
-            style={{ width: '100%', padding: '10px' }}
-          />
-        </div>
+        {/* Menu lateral */}
+        <aside className="morador-sidebar">
+          <span className="sidebar-title">MENU</span>
 
-        <div>
-          <label>Categoria</label>
+          <button className="sidebar-link active">
+            <span>▦</span>
+            Painel
+          </button>
 
-          <select
-            value={categoriaId}
-            onChange={(e) => setCategoriaId(e.target.value)}
-            required
-            style={{ width: '100%', padding: '10px' }}
+          <button
+            className="sidebar-link"
+            onClick={() => navigate('/solicitacoes')}
           >
-            <option value="">Selecione uma categoria</option>
+            <span>▤</span>
+            Solicitações
+          </button>
 
-            {categorias.map((categoria) => (
-              <option
-                key={categoria.id}
-                value={categoria.id}
-              >
-                {categoria.nome}
-              </option>
-            ))}
-          </select>
-        </div>
+          <div className="sidebar-bottom">
+            <button
+              className="sidebar-link"
+              onClick={handleLogout}
+            >
+              <span>↪</span>
+              Sair
+            </button>
+          </div>
+        </aside>
 
-        <div>
-          <label>Localização (apartamento)</label>
+        {/* Conteúdo principal */}
+        <main className="morador-content">
 
-          <input
-            type="text"
-            value={
-              apartamento
-                ? `Bloco ${apartamento.bloco} - Andar ${apartamento.andar} - Apartamento ${apartamento.numero}`
-                : ''
-            }
-            readOnly
-            style={{
-              width: '100%',
-              padding: '10px',
-              backgroundColor: '#eeeeee'
-            }}
-          />
-        </div>
+          <div className="morador-welcome">
+            <div>
+              <h2>Olá, {nomeUsuario}!</h2>
+              <p>Acompanhe o que acontece no condomínio.</p>
+            </div>
 
-        <button
-          type="submit"
-          disabled={enviando || !apartamento}
-        >
-          {enviando ? 'Enviando...' : 'Criar solicitação'}
-        </button>
+            <button
+              className="new-request-button"
+              onClick={() => {
+                setMostrarFormulario(!mostrarFormulario);
+                setErro('');
+                setSucesso('');
+              }}
+            >
+              + Nova solicitação
+            </button>
+          </div>
 
-      </form>
+          {/* Indicadores */}
+          <section className="morador-stats">
 
-      {erro && (
-        <p style={{ color: 'red', marginTop: '15px' }}>
-          {erro}
-        </p>
-      )}
+            <div className="stat-card">
+              <span className="stat-number">
+                {carregandoSolicitacoes ? '...' : totalSolicitacoes}
+              </span>
+              <span className="stat-label">Total de solicitações</span>
+            </div>
 
-      {sucesso && (
-        <p style={{ color: 'green', marginTop: '15px' }}>
-          {sucesso}
-        </p>
-      )}
+            <div className="stat-card stat-card-red">
+              <span className="stat-number">
+                {carregandoSolicitacoes ? '...' : solicitacoesCanceladas}
+              </span>
+              <span className="stat-label">Canceladas</span>
+            </div>
 
-      <button
-        onClick={handleLogout}
-        style={{ marginTop: '25px' }}
-      >
-        Sair
-      </button>
+            <div className="stat-card stat-card-green">
+              <span className="stat-number">
+                {carregandoSolicitacoes ? '...' : solicitacoesConcluidas}
+              </span>
+              <span className="stat-label">Concluídas</span>
+            </div>
 
+          </section>
+
+          {/* Formulário de criação */}
+          {mostrarFormulario && (
+            <section className="morador-panel request-form-panel">
+              <div className="panel-heading">
+                <h3>Nova solicitação</h3>
+
+                <button
+                  className="close-form-button"
+                  onClick={() => setMostrarFormulario(false)}
+                >
+                  Fechar
+                </button>
+              </div>
+
+              {carregando ? (
+                <p>Carregando dados do formulário...</p>
+              ) : (
+                <form
+                  onSubmit={handleCriarSolicitacao}
+                  className="morador-form"
+                >
+                  <div className="form-field">
+                    <label>Título</label>
+                    <input
+                      type="text"
+                      value={titulo}
+                      onChange={(e) => setTitulo(e.target.value)}
+                      maxLength={255}
+                      placeholder="Ex.: Vazamento na cozinha"
+                      required
+                    />
+                  </div>
+
+                  <div className="form-field">
+                    <label>Descrição do problema</label>
+                    <textarea
+                      value={descricao}
+                      onChange={(e) => setDescricao(e.target.value)}
+                      placeholder="Descreva o problema encontrado..."
+                      rows={4}
+                      required
+                    />
+                  </div>
+
+                  <div className="form-field">
+                    <label>Categoria</label>
+                    <select
+                      value={categoriaId}
+                      onChange={(e) => setCategoriaId(e.target.value)}
+                      required
+                    >
+                      <option value="">Selecione uma categoria</option>
+
+                      {categorias.map((categoria) => (
+                        <option key={categoria.id} value={categoria.id}>
+                          {categoria.nome}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+
+                  <div className="form-field">
+                    <label>Localização</label>
+                    <input
+                      type="text"
+                      value={
+                        apartamento
+                          ? `Bloco ${apartamento.bloco} - Andar ${apartamento.andar} - Apartamento ${apartamento.numero}`
+                          : ''
+                      }
+                      readOnly
+                    />
+                  </div>
+
+                  {erro && <p className="form-error">{erro}</p>}
+
+                  <button
+                    type="submit"
+                    className="new-request-button"
+                    disabled={enviando || !apartamento}
+                  >
+                    {enviando ? 'Enviando...' : 'Criar solicitação'}
+                  </button>
+                </form>
+              )}
+            </section>
+          )}
+
+          {sucesso && (
+            <p className="form-success">{sucesso}</p>
+          )}
+
+          {/* Solicitações recentes */}
+          <section className="morador-panel">
+            <div className="panel-heading">
+              <h3>Solicitações recentes</h3>
+            </div>
+
+            {carregandoSolicitacoes ? (
+              <p>Carregando solicitações...</p>
+            ) : erroLista ? (
+              <p className="form-error">{erroLista}</p>
+            ) : solicitacoesRecentes.length === 0 ? (
+              <p className="empty-message">
+                Você ainda não possui solicitações.
+              </p>
+            ) : (
+              <div className="recent-list">
+                {solicitacoesRecentes.map((solicitacao) => (
+                  <button
+                    type="button"
+                    className="recent-item"
+                    key={solicitacao.id}
+                    onClick={() => navigate(`/solicitacoes/${solicitacao.id}`)}
+                  >
+                    <div className="recent-info">
+                      <h4>{solicitacao.titulo}</h4>
+                      <span>
+                        {solicitacao.categoria} · {formatarData(solicitacao.data_abertura)}
+                      </span>
+                    </div>
+
+                    <span
+                      className={`status-badge status-${classeStatus(solicitacao.status)}`}
+                    >
+                      {solicitacao.status}
+                    </span>
+                  </button>
+                ))}
+              </div>
+            )}
+          </section>
+
+        </main>
+      </div>
     </div>
   );
 }

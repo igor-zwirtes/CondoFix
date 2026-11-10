@@ -1,7 +1,7 @@
-
 import React, { useEffect, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import api from '../../services/api';
+import './styles.css';
 
 export default function SolicitacaoDetalhes() {
   const navigate = useNavigate();
@@ -10,6 +10,9 @@ export default function SolicitacaoDetalhes() {
   const usuario = JSON.parse(
     localStorage.getItem('@CondoFix:user') || '{}'
   );
+
+  const nomeUsuario =
+    usuario.nome || usuario.usrnam || usuario.name || 'Usuário';
 
   const ehAdministrador = usuario.papeis?.some((papel) =>
     ['ADMIN', 'ADMINISTRADOR'].includes(papel.toUpperCase())
@@ -49,7 +52,6 @@ export default function SolicitacaoDetalhes() {
   const [erroConclusao, setErroConclusao] = useState('');
   const [sucessoConclusao, setSucessoConclusao] = useState('');
 
-  // Estados da avaliação do serviço.
   const [notaAvaliacao, setNotaAvaliacao] = useState('');
   const [comentarioAvaliacao, setComentarioAvaliacao] = useState('');
   const [salvandoAvaliacao, setSalvandoAvaliacao] = useState(false);
@@ -65,21 +67,19 @@ export default function SolicitacaoDetalhes() {
   const [erroPrestador, setErroPrestador] = useState('');
   const [sucessoPrestador, setSucessoPrestador] = useState('');
 
-  // Identificar solicitações que não permitem mais alterações administrativas.
   const solicitacaoEncerrada = [
     'Concluida',
     'Cancelada',
     'Finalizada'
   ].includes(solicitacao?.status);
 
-  // Obter o ID do prestador atualmente atribuído.
   const prestadorAtualId =
     solicitacao?.prestadorId ??
     solicitacao?.pvdid ??
     solicitacao?.prestador_id ??
     null;
 
-  // Carregar os detalhes da solicitação.
+  // Carregar detalhes.
   useEffect(() => {
     async function carregarSolicitacao() {
       try {
@@ -98,14 +98,13 @@ export default function SolicitacaoDetalhes() {
     carregarSolicitacao();
   }, [id]);
 
-  // Carregar o histórico da solicitação.
+  // Carregar histórico.
   useEffect(() => {
     async function carregarHistorico() {
       try {
         const resposta = await api.get(
           `/api/solicitacoes/${id}/historico`
         );
-
         setHistorico(resposta.data.data);
       } catch (error) {
         setErroHistorico(
@@ -120,7 +119,17 @@ export default function SolicitacaoDetalhes() {
     carregarHistorico();
   }, [id]);
 
-  // Carregar os prestadores disponíveis.
+  async function atualizarDados() {
+    const resposta = await api.get(`/api/solicitacoes/${id}`);
+    setSolicitacao(resposta.data.data);
+
+    const respostaHistorico = await api.get(
+      `/api/solicitacoes/${id}/historico`
+    );
+    setHistorico(respostaHistorico.data.data);
+    setErroHistorico('');
+  }
+
   async function carregarPrestadores() {
     try {
       setCarregandoPrestadores(true);
@@ -138,16 +147,15 @@ export default function SolicitacaoDetalhes() {
     }
   }
 
-  // Alterar a prioridade.
   async function alterarPrioridade() {
     setErroPrioridade('');
     setSucessoPrioridade('');
 
-    if (solicitacaoEncerrada) {
-      return;
-    }
-
-    if (!novaPrioridade || novaPrioridade === solicitacao.prioridade) {
+    if (
+      solicitacaoEncerrada ||
+      !novaPrioridade ||
+      novaPrioridade === solicitacao.prioridade
+    ) {
       return;
     }
 
@@ -158,17 +166,10 @@ export default function SolicitacaoDetalhes() {
         prioridade: novaPrioridade
       });
 
-      const resposta = await api.get(`/api/solicitacoes/${id}`);
-      setSolicitacao(resposta.data.data);
-
-      const respostaHistorico = await api.get(
-        `/api/solicitacoes/${id}/historico`
-      );
-      setHistorico(respostaHistorico.data.data);
+      await atualizarDados();
 
       setEditandoPrioridade(false);
       setNovaPrioridade('');
-
       setSucessoPrioridade('Prioridade alterada com sucesso!');
     } catch (error) {
       setErroPrioridade(
@@ -180,7 +181,6 @@ export default function SolicitacaoDetalhes() {
     }
   }
 
-  // Atualizar o status da solicitação.
   async function alterarStatus() {
     setErroStatus('');
     setSucessoStatus('');
@@ -204,12 +204,7 @@ export default function SolicitacaoDetalhes() {
       setSucessoStatus('Status atualizado com sucesso!');
 
       try {
-        const respostaHistorico = await api.get(
-          `/api/solicitacoes/${id}/historico`
-        );
-
-        setHistorico(respostaHistorico.data.data);
-        setErroHistorico('');
+        await atualizarDados();
       } catch (error) {
         setErroHistorico(
           'O status foi atualizado, mas não foi possível atualizar o histórico na tela.'
@@ -225,51 +220,40 @@ export default function SolicitacaoDetalhes() {
     }
   }
 
-  // Cancelar a solicitação.
-    async function cancelarSolicitacao() {
+  async function cancelarSolicitacao() {
     setErroCancelamento('');
     setSucessoCancelamento('');
 
     if (
-        !['Aberta', 'Atribuida'].includes(solicitacao.status) ||
-        (!ehMorador && !ehAdministrador)
+      !['Aberta', 'Atribuida'].includes(solicitacao.status) ||
+      (!ehMorador && !ehAdministrador)
     ) {
-        return;
+      return;
     }
 
     const confirmar = window.confirm(
-        'Tem certeza de que deseja cancelar esta solicitação?'
+      'Tem certeza de que deseja cancelar esta solicitação?'
     );
 
-    if (!confirmar) {
-        return;
-    }
+    if (!confirmar) return;
 
     try {
-        setSalvandoCancelamento(true);
+      setSalvandoCancelamento(true);
 
-        await api.patch(`/api/solicitacoes/${id}/cancelar`);
+      await api.patch(`/api/solicitacoes/${id}/cancelar`);
+      await atualizarDados();
 
-        const resposta = await api.get(`/api/solicitacoes/${id}`);
-        setSolicitacao(resposta.data.data);
-
-        const respostaHistorico = await api.get(
-        `/api/solicitacoes/${id}/historico`
-        );
-        setHistorico(respostaHistorico.data.data);
-
-        setSucessoCancelamento('Solicitação cancelada com sucesso!');
+      setSucessoCancelamento('Solicitação cancelada com sucesso!');
     } catch (error) {
-        setErroCancelamento(
+      setErroCancelamento(
         error.response?.data?.error?.message ||
         'Não foi possível cancelar a solicitação.'
-        );
+      );
     } finally {
-        setSalvandoCancelamento(false);
+      setSalvandoCancelamento(false);
     }
-    }
+  }
 
-  // Registrar a conclusão do serviço.
   async function concluirServico() {
     setErroConclusao('');
     setSucessoConclusao('');
@@ -296,15 +280,7 @@ export default function SolicitacaoDetalhes() {
         descricao: descricaoSolucao
       });
 
-      const resposta = await api.get(`/api/solicitacoes/${id}`);
-      setSolicitacao(resposta.data.data);
-
-      const respostaHistorico = await api.get(
-        `/api/solicitacoes/${id}/historico`
-      );
-
-      setHistorico(respostaHistorico.data.data);
-      setErroHistorico('');
+      await atualizarDados();
 
       setDescricaoSolucao('');
       setSucessoConclusao('Serviço concluído com sucesso!');
@@ -318,7 +294,6 @@ export default function SolicitacaoDetalhes() {
     }
   }
 
-  // Registrar a avaliação do serviço pelo morador.
   async function avaliarServico() {
     setErroAvaliacao('');
     setSucessoAvaliacao('');
@@ -340,17 +315,7 @@ export default function SolicitacaoDetalhes() {
         comentario: comentarioAvaliacao
       });
 
-      // Atualizar os detalhes após a avaliação.
-      const resposta = await api.get(`/api/solicitacoes/${id}`);
-      setSolicitacao(resposta.data.data);
-
-      // Atualizar o histórico.
-      const respostaHistorico = await api.get(
-        `/api/solicitacoes/${id}/historico`
-      );
-
-      setHistorico(respostaHistorico.data.data);
-      setErroHistorico('');
+      await atualizarDados();
 
       setNotaAvaliacao('');
       setComentarioAvaliacao('');
@@ -366,14 +331,11 @@ export default function SolicitacaoDetalhes() {
     }
   }
 
-  // Atribuir ou trocar o prestador.
   async function atribuirPrestador() {
     setErroPrestador('');
     setSucessoPrestador('');
 
-    if (solicitacaoEncerrada) {
-      return;
-    }
+    if (solicitacaoEncerrada) return;
 
     if (!novoPrestador) {
       setErroPrestador('Selecione um prestador.');
@@ -399,13 +361,7 @@ export default function SolicitacaoDetalhes() {
         prestadorId: Number(novoPrestador)
       });
 
-      const resposta = await api.get(`/api/solicitacoes/${id}`);
-      setSolicitacao(resposta.data.data);
-
-      const respostaHistorico = await api.get(
-        `/api/solicitacoes/${id}/historico`
-      );
-      setHistorico(respostaHistorico.data.data);
+      await atualizarDados();
 
       setEditandoPrestador(false);
       setNovoPrestador('');
@@ -425,7 +381,6 @@ export default function SolicitacaoDetalhes() {
     }
   }
 
-  // Confirmar a alteração que estiver sendo realizada.
   async function confirmarAlteracoes() {
     if (editandoPrioridade) {
       await alterarPrioridade();
@@ -434,381 +389,409 @@ export default function SolicitacaoDetalhes() {
     }
   }
 
-  // Formatar datas.
   function formatarData(data) {
-    if (!data) {
-      return 'Não informada';
-    }
-
+    if (!data) return 'Não informada';
     return new Date(data).toLocaleDateString('pt-BR');
   }
 
   function formatarDataHora(data) {
-    if (!data) {
-      return 'Data não informada';
-    }
-
+    if (!data) return 'Data não informada';
     return new Date(data).toLocaleString('pt-BR');
   }
 
-  if (carregando) {
-    return <p>Carregando detalhes da solicitação...</p>;
+  function classeStatus(status = '') {
+    return status
+      .toLowerCase()
+      .normalize('NFD')
+      .replace(/[\u0300-\u036f]/g, '')
+      .replace(/\s+/g, '-');
   }
 
-  if (erro) {
+  function handleLogout() {
+    localStorage.removeItem('@CondoFix:token');
+    localStorage.removeItem('@CondoFix:user');
+    navigate('/');
+  }
+
+  if (carregando) {
     return (
-      <div style={{ maxWidth: '700px', margin: '40px auto', padding: '30px' }}>
-        <h2>Erro</h2>
-
-        <p style={{ color: 'red' }}>{erro}</p>
-
-        <button onClick={() => navigate('/solicitacoes')}>
-          Voltar para solicitações
-        </button>
+      <div className="detalhes-loading">
+        Carregando detalhes da solicitação...
       </div>
     );
   }
 
-  if (!solicitacao) {
-    return <p>Solicitação não encontrada.</p>;
+  if (erro || !solicitacao) {
+    return (
+      <div className="detalhes-layout">
+        <header className="detalhes-header">
+          <h1>CondoFix<span>.</span></h1>
+        </header>
+
+        <div className="detalhes-container">
+          <aside className="detalhes-sidebar">
+            <span className="detalhes-sidebar-title">MENU</span>
+            <button
+              className="detalhes-sidebar-link"
+              onClick={() => navigate('/solicitacoes')}
+            >
+              <span>▤</span>
+              Solicitações
+            </button>
+            <div className="detalhes-sidebar-bottom">
+              <button
+                className="detalhes-sidebar-link"
+                onClick={handleLogout}
+              >
+                <span>↪</span>
+                Sair
+              </button>
+            </div>
+          </aside>
+
+          <main className="detalhes-content">
+            <section className="detalhes-panel">
+              <h2>{erro ? 'Erro' : 'Solicitação não encontrada'}</h2>
+              {erro && <p className="message-error">{erro}</p>}
+              <button
+                className="secondary-button"
+                onClick={() => navigate('/solicitacoes')}
+              >
+                Voltar para solicitações
+              </button>
+            </section>
+          </main>
+        </div>
+      </div>
+    );
   }
 
   return (
-    <div
-      style={{
-        maxWidth: '800px',
-        margin: '40px auto',
-        padding: '30px'
-      }}
-    >
-      <h1>CondoFix</h1>
+    <div className="detalhes-layout">
+      {/* Cabeçalho fixo */}
+      <header className="detalhes-header">
+        <h1>CondoFix<span>.</span></h1>
 
-      <h2>Detalhes da solicitação</h2>
-
-      <div
-        style={{
-          border: '1px solid #cccccc',
-          borderRadius: '8px',
-          padding: '25px',
-          marginTop: '25px'
-        }}
-      >
-        <h3>{solicitacao.titulo}</h3>
-
-        <div style={{ marginTop: '20px' }}>
-          <p>
-            <strong>Descrição:</strong>
-          </p>
-
-          <p>{solicitacao.descricao}</p>
+        <div className="detalhes-header-user">
+          <span>{nomeUsuario}</span>
+          <div className="detalhes-avatar">
+            {nomeUsuario.charAt(0).toUpperCase()}
+          </div>
         </div>
+      </header>
 
-        <hr />
+      <div className="detalhes-container">
+        {/* Menu lateral fixo */}
+        <aside className="detalhes-sidebar">
+          <span className="detalhes-sidebar-title">MENU</span>
 
-        <p>
-          <strong>Status:</strong> {solicitacao.status}
-        </p>
+          <button
+            className="detalhes-sidebar-link"
+            onClick={() => navigate('/')}
+          >
+            <span>▦</span>
+            Painel
+          </button>
 
-        {/* Cancelamento de solicitação */}
-        {(ehMorador || ehAdministrador) &&
-        ['Aberta', 'Atribuida'].includes(solicitacao.status) && (
-            <div style={{ marginTop: '15px', marginBottom: '15px' }}>
+          <button
+            className="detalhes-sidebar-link active"
+            onClick={() => navigate('/solicitacoes')}
+          >
+            <span>▤</span>
+            Solicitações
+          </button>
+
+          <div className="detalhes-sidebar-bottom">
             <button
-                onClick={cancelarSolicitacao}
-                disabled={salvandoCancelamento}
+              className="detalhes-sidebar-link"
+              onClick={handleLogout}
             >
-                {salvandoCancelamento ? 'Cancelando...' : 'Cancelar solicitação'}
+              <span>↪</span>
+              Sair
             </button>
+          </div>
+        </aside>
 
-            {erroCancelamento && (
-                <p style={{ color: 'red' }}>{erroCancelamento}</p>
-            )}
-
-            {sucessoCancelamento && (
-                <p style={{ color: 'green' }}>{sucessoCancelamento}</p>
-            )}
+        {/* Somente esta área terá rolagem */}
+        <main className="detalhes-content">
+          <div className="detalhes-welcome">
+            <div>
+              <h2>Detalhes da solicitação</h2>
+              <p>Acompanhe as informações e atualizações do serviço.</p>
             </div>
-        )}
-
-        {/* Exibir avaliação registrada pelo morador */}
-        {solicitacao.nota_avaliacao != null && (
-        <div style={{ marginTop: '15px', marginBottom: '15px' }}>
-            <p>
-            <strong>Avaliação do serviço:</strong>{' '}
-            {solicitacao.nota_avaliacao}/5
-            </p>
-
-            {solicitacao.comentario_avaliacao && (
-            <p>
-                <strong>Comentário:</strong>{' '}
-                {solicitacao.comentario_avaliacao}
-            </p>
-            )}
-        </div>
-        )}
-
-        {/* Atualização de status pelo prestador */}
-        {ehPrestador && solicitacao.status === 'Atribuida' && (
-          <div style={{ marginTop: '15px', marginBottom: '15px' }}>
-            <p>Esta solicitação está atribuída a você</p>
-
-            <button
-              onClick={alterarStatus}
-              disabled={salvandoStatus}
-            >
-              {salvandoStatus ? 'Atualizando...' : 'Iniciar serviço'}
-            </button>
-
-            {erroStatus && (
-              <p style={{ color: 'red' }}>{erroStatus}</p>
-            )}
-
-            {sucessoStatus && (
-              <p style={{ color: 'green' }}>{sucessoStatus}</p>
-            )}
           </div>
-        )}
 
-        {/* Registro da conclusão pelo prestador */}
-        {ehPrestador && solicitacao.status === 'Em andamento' && (
-          <div
-            style={{
-              marginTop: '20px',
-              marginBottom: '20px',
-              padding: '15px',
-              border: '1px solid #cccccc',
-              borderRadius: '8px'
-            }}
-          >
-            <h3>Concluir serviço</h3>
+          {/* Informações principais */}
+          <section className="detalhes-panel">
+            <div className="detalhes-panel-heading">
+              <h3>{solicitacao.titulo}</h3>
+              <span className={`status-badge status-${classeStatus(solicitacao.status)}`}>
+                {solicitacao.status}
+              </span>
+            </div>
 
-            <p>
-              Informe a solução realizada para registrar a conclusão
-              desta solicitação.
-            </p>
+            <div className="detalhes-info-section">
+              <span className="details-label">Descrição</span>
+              <p className="details-description">
+                {solicitacao.descricao || 'Nenhuma descrição informada.'}
+              </p>
+            </div>
 
-            <textarea
-              value={descricaoSolucao}
-              onChange={(e) => setDescricaoSolucao(e.target.value)}
-              placeholder="Descreva a solução realizada..."
-              rows={4}
-              style={{
-                width: '100%',
-                padding: '10px',
-                marginTop: '10px',
-                marginBottom: '10px',
-                boxSizing: 'border-box',
-                resize: 'vertical'
-              }}
-            />
+            <div className="details-grid">
+              <div className="details-field">
+                <span className="details-label">Prioridade</span>
+                <strong>{solicitacao.prioridade}</strong>
+              </div>
 
-            <button
-              onClick={concluirServico}
-              disabled={salvandoConclusao || !descricaoSolucao.trim()}
-            >
-              {salvandoConclusao
-                ? 'Concluindo...'
-                : 'Concluir serviço'}
-            </button>
+              <div className="details-field">
+                <span className="details-label">Categoria</span>
+                <strong>{solicitacao.categoria}</strong>
+              </div>
 
-            {erroConclusao && (
-              <p style={{ color: 'red' }}>{erroConclusao}</p>
-            )}
+              <div className="details-field">
+                <span className="details-label">Solicitante</span>
+                <strong>{solicitacao.solicitante || 'Não informado'}</strong>
+              </div>
 
-            {sucessoConclusao && (
-              <p style={{ color: 'green' }}>{sucessoConclusao}</p>
-            )}
-          </div>
-        )}
+              <div className="details-field">
+                <span className="details-label">Prestador responsável</span>
+                <strong>
+                  {solicitacao.prestador || 'Ainda não atribuído'}
+                </strong>
+              </div>
 
-        {/* Avaliação do serviço pelo morador */}
-        {ehMorador && solicitacao.status === 'Concluida' && (
-          <div
-            style={{
-              marginTop: '20px',
-              marginBottom: '20px',
-              padding: '15px',
-              border: '1px solid #cccccc',
-              borderRadius: '8px'
-            }}
-          >
-            <h3>Avaliar serviço</h3>
+              <div className="details-field">
+                <span className="details-label">Data de abertura</span>
+                <strong>{formatarData(solicitacao.data_abertura)}</strong>
+              </div>
 
-            <p>
-              O serviço foi concluído. Informe sua nota e, se desejar,
-              deixe um comentário sobre o atendimento.
-            </p>
+              <div className="details-field">
+                <span className="details-label">Data de fechamento</span>
+                <strong>{formatarData(solicitacao.data_fechamento)}</strong>
+              </div>
+            </div>
 
-            <label>
-              <strong>Nota:</strong>
-            </label>
-
-            <select
-              value={notaAvaliacao}
-              onChange={(e) => setNotaAvaliacao(e.target.value)}
-              style={{
-                display: 'block',
-                marginTop: '8px',
-                marginBottom: '15px',
-                padding: '8px'
-              }}
-            >
-              <option value="">Selecione uma nota</option>
-              <option value="1">1 - Muito ruim</option>
-              <option value="2">2 - Ruim</option>
-              <option value="3">3 - Regular</option>
-              <option value="4">4 - Bom</option>
-              <option value="5">5 - Muito bom</option>
-            </select>
-
-            <label>
-              <strong>Comentário (opcional):</strong>
-            </label>
-
-            <textarea
-              value={comentarioAvaliacao}
-              onChange={(e) => setComentarioAvaliacao(e.target.value)}
-              placeholder="Escreva um comentário sobre o serviço..."
-              rows={4}
-              style={{
-                display: 'block',
-                width: '100%',
-                padding: '10px',
-                marginTop: '8px',
-                marginBottom: '10px',
-                boxSizing: 'border-box',
-                resize: 'vertical'
-              }}
-            />
-
-            <button
-              onClick={avaliarServico}
-              disabled={salvandoAvaliacao || !notaAvaliacao}
-            >
-              {salvandoAvaliacao
-                ? 'Enviando avaliação...'
-                : 'Enviar avaliação'}
-            </button>
-
-            {erroAvaliacao && (
-              <p style={{ color: 'red' }}>{erroAvaliacao}</p>
-            )}
-          </div>
-        )}
-
-        {/* Mensagem de sucesso fora do formulário, pois ele desaparece após a avaliação */}
-        {sucessoAvaliacao && (
-          <p style={{ color: 'green' }}>{sucessoAvaliacao}</p>
-        )}
-
-        {/* Prioridade */}
-        <div style={{ marginTop: '15px', marginBottom: '15px' }}>
-          <p>
-            <strong>Prioridade:</strong> {solicitacao.prioridade}
-          </p>
-
-          {ehAdministrador &&
-            !solicitacaoEncerrada &&
-            !editandoPrioridade &&
-            !editandoPrestador && (
-              <button
-                onClick={() => {
-                  setNovaPrioridade(solicitacao.prioridade);
-                  setEditandoPrioridade(true);
-                  setErroPrioridade('');
-                  setSucessoPrioridade('');
-                }}
-              >
-                Alterar prioridade
-              </button>
-            )}
-
-          {ehAdministrador &&
-            !solicitacaoEncerrada &&
-            editandoPrioridade && (
-              <div style={{ marginTop: '10px' }}>
-                <select
-                  value={novaPrioridade}
-                  onChange={(e) => setNovaPrioridade(e.target.value)}
-                >
-                  <option value="Baixa">Baixa</option>
-                  <option value="Normal">Normal</option>
-                  <option value="Alta">Alta</option>
-                  <option value="Urgente">Urgente</option>
-                </select>
-
-                <button
-                  onClick={() => {
-                    setEditandoPrioridade(false);
-                    setNovaPrioridade('');
-                    setErroPrioridade('');
-                  }}
-                  style={{ marginLeft: '10px' }}
-                >
-                  Cancelar
-                </button>
+            {/* Avaliação já registrada */}
+            {solicitacao.nota_avaliacao != null && (
+              <div className="evaluation-display">
+                <h4>Avaliação do serviço</h4>
+                <p>
+                  <strong>{solicitacao.nota_avaliacao}/5</strong>
+                  {' '}
+                </p>
+                {solicitacao.comentario_avaliacao && (
+                  <p>{solicitacao.comentario_avaliacao}</p>
+                )}
               </div>
             )}
+          </section>
 
-          {erroPrioridade && (
-            <p style={{ color: 'red' }}>{erroPrioridade}</p>
-          )}
+          {/* Cancelamento */}
+          {(ehMorador || ehAdministrador) &&
+            ['Aberta', 'Atribuida'].includes(solicitacao.status) && (
+              <section className="detalhes-panel action-panel">
+                <h3>Cancelar solicitação</h3>
+                <p>
+                  Se não deseja mais continuar com esta solicitação,
+                  você pode cancelá-la.
+                </p>
 
-          {sucessoPrioridade && (
-            <p style={{ color: 'green' }}>{sucessoPrioridade}</p>
-          )}
-        </div>
+                <button
+                  className="danger-button"
+                  onClick={cancelarSolicitacao}
+                  disabled={salvandoCancelamento}
+                >
+                  {salvandoCancelamento
+                    ? 'Cancelando...'
+                    : 'Cancelar solicitação'}
+                </button>
 
-        <p>
-          <strong>Categoria:</strong> {solicitacao.categoria}
-        </p>
-
-        <hr />
-
-        <p>
-          <strong>Solicitante:</strong> {solicitacao.solicitante}
-        </p>
-
-        {/* Prestador responsável */}
-        <div style={{ marginTop: '15px', marginBottom: '15px' }}>
-          <p>
-            <strong>Prestador responsável:</strong>{' '}
-            {solicitacao.prestador || 'Ainda não atribuído'}
-          </p>
-
-          {ehAdministrador &&
-            !solicitacaoEncerrada &&
-            !editandoPrestador &&
-            !editandoPrioridade && (
-              <button
-                onClick={() => {
-                  setEditandoPrestador(true);
-                  setNovoPrestador('');
-                  setErroPrestador('');
-                  setSucessoPrestador('');
-                  carregarPrestadores();
-                }}
-              >
-                {solicitacao.prestador
-                  ? 'Alterar prestador'
-                  : 'Atribuir prestador'}
-              </button>
+                {erroCancelamento && (
+                  <p className="message-error">{erroCancelamento}</p>
+                )}
+                {sucessoCancelamento && (
+                  <p className="message-success">{sucessoCancelamento}</p>
+                )}
+              </section>
             )}
 
-          {ehAdministrador &&
-            !solicitacaoEncerrada &&
-            editandoPrestador && (
-              <div style={{ marginTop: '10px' }}>
-                {carregandoPrestadores ? (
-                  <p>Carregando prestadores...</p>
-                ) : (
-                  <>
+          {/* Ação do prestador: iniciar */}
+          {ehPrestador && solicitacao.status === 'Atribuida' && (
+            <section className="detalhes-panel action-panel">
+              <h3>Iniciar serviço</h3>
+              <p>Esta solicitação está atribuída a você.</p>
+
+              <button
+                className="primary-button"
+                onClick={alterarStatus}
+                disabled={salvandoStatus}
+              >
+                {salvandoStatus ? 'Atualizando...' : 'Iniciar serviço'}
+              </button>
+
+              {erroStatus && (
+                <p className="message-error">{erroStatus}</p>
+              )}
+              {sucessoStatus && (
+                <p className="message-success">{sucessoStatus}</p>
+              )}
+            </section>
+          )}
+
+          {/* Ação do prestador: concluir */}
+          {ehPrestador && solicitacao.status === 'Em andamento' && (
+            <section className="detalhes-panel action-panel">
+              <h3>Concluir serviço</h3>
+              <p>
+                Informe a solução realizada para registrar a conclusão
+                desta solicitação.
+              </p>
+
+              <div className="details-form-field">
+                <label>Descrição da solução</label>
+                <textarea
+                  value={descricaoSolucao}
+                  onChange={(e) => setDescricaoSolucao(e.target.value)}
+                  placeholder="Descreva a solução realizada..."
+                  rows={4}
+                />
+              </div>
+
+              <button
+                className="primary-button"
+                onClick={concluirServico}
+                disabled={salvandoConclusao || !descricaoSolucao.trim()}
+              >
+                {salvandoConclusao
+                  ? 'Concluindo...'
+                  : 'Concluir serviço'}
+              </button>
+
+              {erroConclusao && (
+                <p className="message-error">{erroConclusao}</p>
+              )}
+              {sucessoConclusao && (
+                <p className="message-success">{sucessoConclusao}</p>
+              )}
+            </section>
+          )}
+
+          {/* Avaliação do morador */}
+          {ehMorador && solicitacao.status === 'Concluida' && (
+            <section className="detalhes-panel action-panel">
+              <h3>Avaliar serviço</h3>
+              <p>
+                O serviço foi concluído. Informe sua nota e, se desejar,
+                deixe um comentário sobre o atendimento.
+              </p>
+
+              <div className="details-form-field">
+                <label>Nota</label>
+                <select
+                  value={notaAvaliacao}
+                  onChange={(e) => setNotaAvaliacao(e.target.value)}
+                >
+                  <option value="">Selecione uma nota</option>
+                  <option value="1">1 - Muito ruim</option>
+                  <option value="2">2 - Ruim</option>
+                  <option value="3">3 - Regular</option>
+                  <option value="4">4 - Bom</option>
+                  <option value="5">5 - Muito bom</option>
+                </select>
+              </div>
+
+              <div className="details-form-field">
+                <label>Comentário (opcional)</label>
+                <textarea
+                  value={comentarioAvaliacao}
+                  onChange={(e) => setComentarioAvaliacao(e.target.value)}
+                  placeholder="Escreva um comentário sobre o serviço..."
+                  rows={4}
+                />
+              </div>
+
+              <button
+                className="primary-button"
+                onClick={avaliarServico}
+                disabled={salvandoAvaliacao || !notaAvaliacao}
+              >
+                {salvandoAvaliacao
+                  ? 'Enviando avaliação...'
+                  : 'Enviar avaliação'}
+              </button>
+
+              {erroAvaliacao && (
+                <p className="message-error">{erroAvaliacao}</p>
+              )}
+              {sucessoAvaliacao && (
+                <p className="message-success">{sucessoAvaliacao}</p>
+              )}
+            </section>
+          )}
+
+          {/* Ações administrativas */}
+          {ehAdministrador && !solicitacaoEncerrada && (
+            <section className="detalhes-panel action-panel">
+              <h3>Gerenciar solicitação</h3>
+
+              {!editandoPrioridade && !editandoPrestador && (
+                <div className="admin-actions">
+                  <button
+                    className="secondary-button"
+                    onClick={() => {
+                      setNovaPrioridade(solicitacao.prioridade);
+                      setEditandoPrioridade(true);
+                      setErroPrioridade('');
+                      setSucessoPrioridade('');
+                    }}
+                  >
+                    Alterar prioridade
+                  </button>
+
+                  <button
+                    className="secondary-button"
+                    onClick={() => {
+                      setEditandoPrestador(true);
+                      setNovoPrestador('');
+                      setErroPrestador('');
+                      setSucessoPrestador('');
+                      carregarPrestadores();
+                    }}
+                  >
+                    {solicitacao.prestador
+                      ? 'Alterar prestador'
+                      : 'Atribuir prestador'}
+                  </button>
+                </div>
+              )}
+
+              {editandoPrioridade && (
+                <div className="details-form-field">
+                  <label>Nova prioridade</label>
+                  <select
+                    value={novaPrioridade}
+                    onChange={(e) => setNovaPrioridade(e.target.value)}
+                  >
+                    <option value="Baixa">Baixa</option>
+                    <option value="Normal">Normal</option>
+                    <option value="Alta">Alta</option>
+                    <option value="Urgente">Urgente</option>
+                  </select>
+                </div>
+              )}
+
+              {editandoPrestador && (
+                <div className="details-form-field">
+                  <label>Prestador responsável</label>
+
+                  {carregandoPrestadores ? (
+                    <p>Carregando prestadores...</p>
+                  ) : (
                     <select
                       value={novoPrestador}
                       onChange={(e) => setNovoPrestador(e.target.value)}
                     >
                       <option value="">Selecione um prestador</option>
-
                       {prestadores.map((prestador) => {
                         const jaAtribuido =
                           String(prestador.id) === String(prestadorAtualId);
@@ -825,131 +808,104 @@ export default function SolicitacaoDetalhes() {
                         );
                       })}
                     </select>
+                  )}
+                </div>
+              )}
 
-                    <button
-                      onClick={() => {
-                        setEditandoPrestador(false);
-                        setNovoPrestador('');
-                        setErroPrestador('');
-                      }}
-                      disabled={salvandoPrestador}
-                      style={{ marginLeft: '10px' }}
-                    >
-                      Cancelar
-                    </button>
-                  </>
-                )}
+              {(editandoPrioridade || editandoPrestador) && (
+                <div className="admin-actions">
+                  <button
+                    className="primary-button"
+                    onClick={confirmarAlteracoes}
+                    disabled={
+                      salvandoPrioridade ||
+                      salvandoPrestador ||
+                      (editandoPrioridade &&
+                        novaPrioridade === solicitacao.prioridade) ||
+                      (editandoPrestador &&
+                        (
+                          !novoPrestador ||
+                          String(novoPrestador) === String(prestadorAtualId) ||
+                          carregandoPrestadores
+                        ))
+                    }
+                  >
+                    {salvandoPrioridade || salvandoPrestador
+                      ? 'Salvando...'
+                      : 'Confirmar alteração'}
+                  </button>
+
+                  <button
+                    className="secondary-button"
+                    onClick={() => {
+                      setEditandoPrioridade(false);
+                      setEditandoPrestador(false);
+                      setNovaPrioridade('');
+                      setNovoPrestador('');
+                      setErroPrioridade('');
+                      setErroPrestador('');
+                    }}
+                    disabled={salvandoPrioridade || salvandoPrestador}
+                  >
+                    Voltar
+                  </button>
+                </div>
+              )}
+
+              {erroPrioridade && (
+                <p className="message-error">{erroPrioridade}</p>
+              )}
+              {sucessoPrioridade && (
+                <p className="message-success">{sucessoPrioridade}</p>
+              )}
+              {erroPrestador && (
+                <p className="message-error">{erroPrestador}</p>
+              )}
+              {sucessoPrestador && (
+                <p className="message-success">{sucessoPrestador}</p>
+              )}
+            </section>
+          )}
+
+          {/* Histórico */}
+          <section className="detalhes-panel">
+            <div className="detalhes-panel-heading">
+              <h3>Histórico de alterações</h3>
+            </div>
+
+            {carregandoHistorico ? (
+              <p className="details-empty">Carregando histórico...</p>
+            ) : erroHistorico ? (
+              <p className="message-error">{erroHistorico}</p>
+            ) : historico.length === 0 ? (
+              <p className="details-empty">
+                Nenhuma alteração registrada.
+              </p>
+            ) : (
+              <div className="history-list">
+                {historico.map((alteracao) => (
+                  <article className="history-item" key={alteracao.id}>
+                    <h4>{alteracao.tipo}</h4>
+                    <p>{alteracao.descricao}</p>
+
+                    <div className="history-meta">
+                      <span>
+                        <strong>Responsável:</strong>{' '}
+                        {alteracao.usuario || 'Não informado'}
+                      </span>
+                      <span>
+                        <strong>Data:</strong>{' '}
+                        {formatarDataHora(alteracao.data)}
+                      </span>
+                    </div>
+                  </article>
+                ))}
               </div>
             )}
+          </section>
 
-          {erroPrestador && (
-            <p style={{ color: 'red' }}>{erroPrestador}</p>
-          )}
-
-          {sucessoPrestador && (
-            <p style={{ color: 'green' }}>{sucessoPrestador}</p>
-          )}
-        </div>
-
-        <hr />
-
-        <p>
-          <strong>Data de abertura:</strong>{' '}
-          {formatarData(solicitacao.data_abertura)}
-        </p>
-
-        <p>
-          <strong>Data de fechamento:</strong>{' '}
-          {formatarData(solicitacao.data_fechamento)}
-        </p>
+        </main>
       </div>
-
-      {/* Botão único para confirmar alterações */}
-      {ehAdministrador &&
-        !solicitacaoEncerrada &&
-        (editandoPrioridade || editandoPrestador) && (
-          <button
-            onClick={confirmarAlteracoes}
-            disabled={
-              salvandoPrioridade ||
-              salvandoPrestador ||
-              (editandoPrioridade &&
-                novaPrioridade === solicitacao.prioridade) ||
-              (editandoPrestador &&
-                (
-                  !novoPrestador ||
-                  String(novoPrestador) === String(prestadorAtualId) ||
-                  carregandoPrestadores
-                ))
-            }
-            style={{ marginTop: '15px' }}
-          >
-            {salvandoPrioridade || salvandoPrestador
-              ? 'Salvando...'
-              : 'Confirmar alteração'}
-          </button>
-        )}
-
-      <div style={{ marginTop: '35px' }}>
-        <h2>Histórico de alterações</h2>
-
-        {carregandoHistorico && (
-          <p>Carregando histórico...</p>
-        )}
-
-        {erroHistorico && (
-          <p style={{ color: 'red' }}>{erroHistorico}</p>
-        )}
-
-        {!carregandoHistorico &&
-          !erroHistorico &&
-          historico.length === 0 && (
-            <p>Nenhuma alteração registrada.</p>
-          )}
-
-        {!carregandoHistorico && historico.length > 0 && (
-          <div
-            style={{
-              display: 'flex',
-              flexDirection: 'column',
-              gap: '15px',
-              marginTop: '20px'
-            }}
-          >
-            {historico.map((alteracao) => (
-              <div
-                key={alteracao.id}
-                style={{
-                  border: '1px solid #cccccc',
-                  borderRadius: '8px',
-                  padding: '20px'
-                }}
-              >
-                <h3>{alteracao.tipo}</h3>
-
-                <p>{alteracao.descricao}</p>
-
-                <p>
-                  <strong>Responsável:</strong>{' '}
-                  {alteracao.usuario || 'Não informado'}
-                </p>
-
-                <p>
-                  <strong>Data:</strong>{' '}
-                  {formatarDataHora(alteracao.data)}
-                </p>
-              </div>
-            ))}
-          </div>
-        )}
-      </div>
-
-      <button
-        onClick={() => navigate('/solicitacoes')}
-        style={{ marginTop: '25px' }}
-      >
-        Voltar para solicitações
-      </button>
     </div>
   );
 }
