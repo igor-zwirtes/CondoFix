@@ -706,7 +706,12 @@ describe("Solicitações", () => {
         return request(app)
         .patch(`/api/solicitacoes/${solicitacaoId}/status`)
         .set("Authorization", `Bearer ${token}`)
-        .send({ status });
+        .send({
+            status,
+            ...(status === "Concluida"
+                ? { descricao: "Reparo realizado e testado." }
+                : {}),
+        });
     }
 
     it("deve permitir transição de Atribuida para Em andamento", async () => {
@@ -833,7 +838,7 @@ describe("Solicitações", () => {
         );
 
         expect(descricoes).toContain(
-        'Status alterado de "Em andamento" para "Concluida".'
+        'Status alterado de "Em andamento" para "Concluida". Solução realizada: Reparo realizado e testado.'
         );
     });
     });
@@ -1107,7 +1112,10 @@ describe("Solicitações", () => {
         const concluida = await request(app)
         .patch(`/api/solicitacoes/${solicitacaoId}/status`)
         .set("Authorization", `Bearer ${prestadorToken}`)
-        .send({ status: "Concluida" });
+        .send({
+            status: "Concluida",
+            descricao: "Reparo realizado e testado.",
+        });
 
         if (concluida.status !== 200) {
         throw new Error("Não foi possível concluir a solicitação.");
@@ -1337,7 +1345,10 @@ describe("Solicitações", () => {
         const concluida = await request(app)
         .patch(`/api/solicitacoes/${solicitacaoId}/status`)
         .set("Authorization", `Bearer ${prestadorToken}`)
-        .send({ status: "Concluida" });
+        .send({
+            status: "Concluida",
+            descricao: "Reparo realizado e testado.",
+        });
 
         if (concluida.status !== 200) {
         throw new Error("Não foi possível concluir a solicitação.");
@@ -1620,7 +1631,10 @@ describe("Solicitações", () => {
         const concluida = await request(app)
         .patch(`/api/solicitacoes/${solicitacaoId}/status`)
         .set("Authorization", `Bearer ${prestadorToken}`)
-        .send({ status: "Concluida" });
+        .send({
+            status: "Concluida",
+            descricao: "Reparo realizado e testado.",
+        });
 
         if (concluida.status !== 200) {
         throw new Error("Não foi possível concluir a solicitação.");
@@ -1788,7 +1802,10 @@ describe("Solicitações", () => {
         const concluida = await request(app)
         .patch(`/api/solicitacoes/${solicitacaoId}/status`)
         .set("Authorization", `Bearer ${prestadorToken}`)
-        .send({ status: "Concluida" });
+        .send({
+            status: "Concluida",
+            descricao: "Reparo realizado e testado.",
+        });
 
         if (concluida.status !== 200) {
         throw new Error("Não foi possível concluir a solicitação.");
@@ -1978,7 +1995,10 @@ describe("Solicitações", () => {
         const concluida = await request(app)
         .patch(`/api/solicitacoes/${solicitacaoId}/status`)
         .set("Authorization", `Bearer ${prestadorToken}`)
-        .send({ status: "Concluida" });
+        .send({
+            status: "Concluida",
+            descricao: "Reparo realizado e testado.",
+        });
 
         if (concluida.status !== 200) {
         throw new Error("Não foi possível concluir a solicitação.");
@@ -2107,7 +2127,7 @@ describe("Solicitações", () => {
         [solicitacaoId]
         );
 
-        expect(antes.rows[0].socls).toBeNull();
+        expect(antes.rows[0].socls).not.toBeNull();
 
         const response = await reabrirSolicitacao(solicitacaoId);
         expect(response.status).toBe(200);

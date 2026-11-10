@@ -1,3 +1,4 @@
+
 const express = require("express");
 const pool = require("../config/database");
 const autenticar = require("../middlewares/auth.middleware");

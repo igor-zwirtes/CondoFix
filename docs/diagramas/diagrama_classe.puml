@@ -1,56 +1,269 @@
+
 @startuml
+title CondoFix - Diagrama de Classes
 
-class Usuario {
-    - id: int
-    - nome: String
-    - email: String
-    - senha: String
+skinparam classAttributeIconSize 0
+skinparam linetype ortho
+skinparam packageStyle rectangle
+hide empty methods
+
+' =====================================================
+' USUARIOS E CONTROLE DE ACESSO
+' =====================================================
+
+package "Usuários e Controle de Acesso" {
+
+    class Usuario {
+        - usrid: Integer <<PK>>
+        - usrnam: String
+        - usrphn: String
+        - usreml: String
+        - usrpsw: String
+        - usract: Boolean
+    }
+
+    class Role {
+        - roleid: Integer <<PK>>
+        - rolenam: String
+        - roledesc: Text
+    }
+
+    class UsuarioRole {
+        - usrid: Integer <<PK, FK>>
+        - roleid: Integer <<PK, FK>>
+    }
+
+    class Funcao {
+        - funid: Integer <<PK>>
+        - funnom: String
+        - fundcp: Text
+    }
+
+    class RoleFuncao {
+        - roleid: Integer <<PK, FK>>
+        - funid: Integer <<PK, FK>>
+    }
+
+    class FuncaoView {
+        - funid: Integer <<PK, FK>>
+        - fvnom: String <<PK>>
+        - fvview: String
+        - fvord: Integer
+    }
+
+    class Morador {
+        - usrid: Integer <<PK, FK>>
+        - aptid: Integer <<FK>>
+    }
+
+    class PrestadorServico {
+        - usrid: Integer <<PK, FK>>
+        - pvdcpf: String
+        - pvdcmp: Integer <<FK, nullable>>
+    }
+
+    class Apartamento {
+        - aptid: Integer <<PK>>
+        - aptnum: String
+        - aptflr: String
+        - aptblk: String
+    }
+
+    class Empresa {
+        - cmpid: Integer <<PK>>
+        - cmpnam: String
+        - cmpcnpj: String
+    }
 }
 
-class Morador {
-    + criarSolicitacao(): void
-    + acompanharSolicitacao(): void
-    + avaliarServico(): void
+
+' =====================================================
+' SOLICITACOES E TABELAS DE DOMINIO
+' =====================================================
+
+package "Solicitações de Manutenção" {
+
+    class Solicitacao {
+        - soid: Integer <<PK>>
+        - usrid: Integer <<FK>>
+        - sotit: String
+        - aptid: Integer <<FK>>
+        - pvdid: Integer <<FK, nullable>>
+        - sodcp: Text
+        - catid: Integer <<FK>>
+        - priid: Integer <<FK>>
+        - stsid: Integer <<FK>>
+        - soopn: Timestamp
+        - socls: Timestamp <<nullable>>
+    }
+
+    class CategoriaSolicitacao {
+        - catid: Integer <<PK>>
+        - catnom: String
+    }
+
+    class PrioridadeSolicitacao {
+        - priid: Integer <<PK>>
+        - prinom: String
+    }
+
+    class StatusSolicitacao {
+        - stsid: Integer <<PK>>
+        - stsnom: String
+    }
 }
 
-class Administrador {
-    + cadastrarUsuario(): void
-    + definirPrioridade(): void
+
+' =====================================================
+' HISTORICO
+' =====================================================
+
+package "Histórico de Alterações" {
+
+    class Alteracao {
+        - altid: Integer <<PK>>
+        - soid: Integer <<FK>>
+        - usrid: Integer <<FK>>
+        - typid: Integer <<FK>>
+        - altdcp: Text
+        - alttim: Timestamp
+    }
+
+    class TipoAlteracao {
+        - typid: Integer <<PK>>
+        - typnom: String
+    }
 }
 
-class PrestadorServico {
-    + atualizarStatus(): void
-    + registrarConclusao(): void
+
+' =====================================================
+' AVALIACAO E FATURAMENTO
+' =====================================================
+
+package "Avaliação e Faturamento" {
+
+    class Avaliacao {
+        - soid: Integer <<PK, FK>>
+        - evascr: Integer
+        - evanot: Text
+    }
+
+    class Faturamento {
+        - soid: Integer <<PK, FK>>
+        - fatval: Numeric(10,2)
+        - fatdcp: Text
+        - fatdat: Timestamp
+        - usrid: Integer <<FK>>
+    }
 }
 
-class Solicitacao {
-    - id: int
-    - descricao: String
-    - categoria: String
-    - localizacao: String
-    - prioridade: String
-    - status: String
-    - dataAbertura: Date
-    - dataConclusao: Date
 
-    + atribuirResponsavel(): void
-    + alterarStatus(): void
-    + encerrar(): void
-}
+' =====================================================
+' USUARIOS E PERFIS
+' =====================================================
 
-class Avaliacao {
-    - nota: int
-    - comentario: String
-}
+Usuario "1" -- "0..1" Morador : perfil
+Usuario "1" -- "0..1" PrestadorServico : perfil
 
-Usuario <|-- Morador
-Usuario <|-- Administrador
-Usuario <|-- PrestadorServico
+Apartamento "1" -- "0..*" Morador : reside
+Empresa "0..1" -- "0..*" PrestadorServico : vincula
+
+
+' =====================================================
+' CONTROLE DE ACESSO
+' =====================================================
+
+Usuario "1" -- "0..*" UsuarioRole
+Role "1" -- "0..*" UsuarioRole
+
+Role "1" -- "0..*" RoleFuncao
+Funcao "1" -- "0..*" RoleFuncao
+
+Funcao "1" -- "0..*" FuncaoView : disponibiliza
+
+
+' =====================================================
+' SOLICITACOES
+' =====================================================
 
 Morador "1" -- "0..*" Solicitacao : cria
-Administrador "1" -- "0..*" Solicitacao : gerencia
-PrestadorServico "1" -- "0..*" Solicitacao : executa
-Solicitacao "1" -- "0..1" Avaliacao : possui
-Morador "1" -- "0..*" Avaliacao : faz
+
+PrestadorServico "0..1" -- "0..*" Solicitacao : executa
+
+CategoriaSolicitacao "1" -- "0..*" Solicitacao
+PrioridadeSolicitacao "1" -- "0..*" Solicitacao
+StatusSolicitacao "1" -- "0..*" Solicitacao
+
+
+' =====================================================
+' HISTORICO
+' =====================================================
+
+Solicitacao "1" -- "0..*" Alteracao : possui
+Usuario "1" -- "0..*" Alteracao : realiza
+TipoAlteracao "1" -- "0..*" Alteracao : classifica
+
+
+' =====================================================
+' AVALIACAO E FATURAMENTO
+' =====================================================
+
+Solicitacao "1" -- "0..1" Avaliacao : recebe
+Solicitacao "1" -- "0..1" Faturamento : possui
+Usuario "1" -- "0..*" Faturamento : registra
+
+
+' =====================================================
+' REGRAS E OBSERVACOES DO MODELO
+' =====================================================
+
+note right of Role
+  Papéis cadastrados:
+  - ADMIN: administrador do sistema
+  - ADMINISTRADOR: síndico
+  - USUARIO: morador
+  - PRESTADOR_SERVICO: prestador
+end note
+
+note bottom of Solicitacao
+  A FK composta (usrid, aptid)
+  referencia MORADORES (usrid, aptid).
+  Portanto, o apartamento da solicitação
+  deve pertencer ao morador que a criou.
+end note
+
+note bottom of UsuarioRole
+  Chave primária composta:
+  (usrid, roleid).
+  Um usuário pode possuir
+  vários papéis.
+end note
+
+note bottom of RoleFuncao
+  Chave primária composta:
+  (roleid, funid).
+  Define os módulos permitidos
+  para cada papel.
+end note
+
+note bottom of FuncaoView
+  Chave primária composta:
+  (funid, fvnom).
+  fvord também é único
+  dentro de cada função.
+end note
+
+note right of Avaliacao
+  A avaliação é opcional
+  e cada solicitação pode
+  possuir no máximo uma.
+  Nota: de 1 a 5.
+end note
+
+note right of Faturamento
+  Cada solicitação pode possuir
+  no máximo um faturamento.
+  O valor deve ser maior que zero.
+end note
 
 @enduml
