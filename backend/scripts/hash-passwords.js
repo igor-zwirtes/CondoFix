@@ -8,6 +8,10 @@ async function main() {
     "maria123",
     "prestador123",
     "ana123",
+    "pedro123",
+    "roberto123",
+    "admin456",
+    "prestador456",
   ];
 
   for (const senha of senhas) {
