@@ -13,6 +13,11 @@ router.get(
 );
 
 router.get(
+  "/opcoes",
+  controller.listarOpcoes
+);
+
+router.get(
   "/:id",
   controller.obterPorId
 );

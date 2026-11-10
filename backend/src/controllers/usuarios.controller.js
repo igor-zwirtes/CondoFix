@@ -217,6 +217,44 @@ const obterPorId = async (req, res, next) => {
   }
 };
 
+// GET /api/usuarios/opcoes
+// Retorna apartamentos e empresas para o formulário de cadastro.
+const listarOpcoes = async (req, res, next) => {
+  try {
+    const apartamentos = await pool.query(
+      `
+        SELECT
+          aptid AS id,
+          aptnum AS numero,
+          aptflr AS andar,
+          aptblk AS bloco
+        FROM "APARTAMENTOS"
+        ORDER BY aptblk, aptflr, aptnum
+      `
+    );
+
+    const empresas = await pool.query(
+      `
+        SELECT
+          cmpid AS id,
+          cmpnam AS nome
+        FROM "EMPRESAS"
+        ORDER BY cmpnam
+      `
+    );
+
+    return res.status(200).json({
+      success: true,
+      data: {
+        apartamentos: apartamentos.rows,
+        empresas: empresas.rows,
+      },
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
 const criar = async (req, res, next) => {
   const {
     nome,
@@ -255,12 +293,21 @@ const criar = async (req, res, next) => {
     return respostaErro(res, 400, "INVALID_EMAIL", "E-mail inválido.");
   }
 
-  if (typeof senha !== "string" || senha.length < 8) {
+  if (telefoneNormalizado && !/^\d{11}$/.test(telefoneNormalizado)) {
+    return respostaErro(
+      res,
+      400,
+      "INVALID_PHONE",
+      "O telefone deve ter 11 dígitos (DDD + número), somente números."
+    );
+  }
+
+  if (typeof senha !== "string") {
     return respostaErro(
       res,
       400,
       "INVALID_PASSWORD",
-      "A senha deve ter pelo menos 8 caracteres."
+      "Senha inválida."
     );
   }
 
@@ -517,13 +564,13 @@ const atualizar = async (req, res, next) => {
 
   if (
     senha !== undefined &&
-    (typeof senha !== "string" || senha.length < 8)
+    (typeof senha !== "string" || !senha)
   ) {
     return respostaErro(
       res,
       400,
       "INVALID_PASSWORD",
-      "A senha deve ter pelo menos 8 caracteres."
+      "Senha inválida."
     );
   }
 
@@ -749,6 +796,7 @@ async function alterarAtivo(req, res, next, ativo) {
 module.exports = {
   listar,
   obterPorId,
+  listarOpcoes,
   criar,
   atualizar,
   desativar,

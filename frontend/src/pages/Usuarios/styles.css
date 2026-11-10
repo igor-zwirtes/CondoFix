@@ -114,7 +114,7 @@
   padding: 32px;
   display: flex;
   flex-direction: column;
-  overflow: hidden;
+  overflow-y: auto;
 }
 
 .usuarios-welcome {
@@ -168,7 +168,7 @@
   border-radius: 16px;
   background: #FFFFFF;
   flex: 1;
-  min-height: 0;
+  min-height: 300px;
   display: flex;
   flex-direction: column;
 }
@@ -273,6 +273,98 @@
 }
 
 
+/* Formulário de cadastro */
+.usuarios-welcome-actions {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.usuarios-panel.usuarios-form-panel {
+  flex: none;
+  min-height: 0;
+  border: 1px solid #E5E0D2;
+}
+
+.usuarios-close-form {
+  border: none;
+  background: transparent;
+  color: #536F42;
+  font-family: inherit;
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.usuarios-close-form:hover {
+  text-decoration: underline;
+}
+
+.usuarios-form {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 16px;
+}
+
+.usuarios-form-grid {
+  width: 100%;
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 16px;
+}
+
+.usuarios-field {
+  display: flex;
+  flex-direction: column;
+  gap: 7px;
+}
+
+.usuarios-field label {
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.usuarios-field input,
+.usuarios-field select {
+  width: 100%;
+  box-sizing: border-box;
+  padding: 12px;
+  border: 1px solid #E5E0D2;
+  border-radius: 9px;
+  background: #F7F7F3;
+  color: #202A27;
+  font-family: inherit;
+  font-size: 14px;
+  outline: none;
+}
+
+.usuarios-field input:focus,
+.usuarios-field select:focus {
+  border-color: #8FCB62;
+}
+
+.usuarios-form-error,
+.usuarios-form-success {
+  width: 100%;
+  box-sizing: border-box;
+  padding: 11px;
+  border-radius: 8px;
+  font-size: 13px;
+}
+
+.usuarios-form-error {
+  background: #FCE8E5;
+  color: #B42318;
+}
+
+.usuarios-form-success {
+  margin-bottom: 18px;
+  background: #D9F5E3;
+  color: #168344;
+}
+
+
 /* Responsividade */
 @media (max-width: 768px) {
   .usuarios-layout {
@@ -360,6 +452,16 @@
 
   .usuarios-refresh {
     max-width: 100%;
+  }
+
+  .usuarios-welcome-actions {
+    flex-direction: column;
+    align-items: stretch;
+    width: 100%;
+  }
+
+  .usuarios-form-grid {
+    grid-template-columns: 1fr;
   }
 
   .usuarios-panel {

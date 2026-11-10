@@ -150,7 +150,7 @@ export default function PainelAdmin() {
                   <h4>Gerenciar usuários</h4>
 
                   <p>
-                    Consulte os usuários cadastrados no sistema.
+                    Cadastre e consulte os usuários do sistema.
                   </p>
                 </div>
 

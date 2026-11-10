@@ -306,6 +306,24 @@ describe("Gerenciamento de usuários", () => {
     });
   });
 
+  describe("Opções de cadastro", () => {
+    it("deve listar apartamentos e empresas para o cadastro", async () => {
+      const response = await request(app)
+        .get("/api/usuarios/opcoes")
+        .set("Authorization", `Bearer ${adminToken}`);
+
+      expect(response.status).toBe(200);
+      expect(Array.isArray(response.body.data.apartamentos)).toBe(true);
+      expect(Array.isArray(response.body.data.empresas)).toBe(true);
+    });
+
+    it("deve impedir listar opções sem autenticação", async () => {
+      const response = await request(app).get("/api/usuarios/opcoes");
+
+      expect(response.status).toBe(401);
+    });
+  });
+
   describe("Cadastro de usuários", () => {
     it("deve cadastrar um morador", async () => {
       const response = await request(app)
@@ -375,19 +393,20 @@ describe("Gerenciamento de usuários", () => {
       expect(response.body.error.code).toBe("INVALID_EMAIL");
     });
 
-    it("deve rejeitar senha com menos de oito caracteres", async () => {
+    it("deve rejeitar telefone com tamanho diferente de 11 dígitos", async () => {
       const response = await request(app)
         .post("/api/usuarios")
         .set("Authorization", `Bearer ${adminToken}`)
         .send({
-          nome: "Senha Curta",
-          email: "senha.curta@condofix.test",
-          senha: "1234567",
+          nome: "Telefone Curto",
+          email: "telefone.curto@condofix.test",
+          telefone: "2199999",
+          senha: SENHA,
           papel: "ADMINISTRADOR",
         });
 
       expect(response.status).toBe(400);
-      expect(response.body.error.code).toBe("INVALID_PASSWORD");
+      expect(response.body.error.code).toBe("INVALID_PHONE");
     });
 
     it("deve rejeitar cadastro de ADMIN pela API", async () => {
