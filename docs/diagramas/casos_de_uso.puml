@@ -1,3 +1,4 @@
+
 @startuml
 left to right direction
 
@@ -20,134 +21,145 @@ skinparam rectangle {
     BorderColor #333333
 }
 
-
 ' ATORES
 
 actor "Usuário" as Usuario
 actor "Morador" as Morador
-actor "Administrador" as Admin
+actor "Síndico" as Sindico
+actor "Administrador do\nSistema" as Admin
 actor "Prestador de Serviço" as Prestador
 
 Morador --|> Usuario
+Sindico --|> Usuario
 Admin --|> Usuario
 Prestador --|> Usuario
 
 
 ' SISTEMA
 
-rectangle "Sistema de Gestão de Manutenção" {
+rectangle "CondoFix - Sistema de Gestão de Manutenção" {
 
-    ' ---------- AUTENTICAÇÃO ----------
+    package "Autenticação" {
+        usecase "Realizar login" as UC01
+    }
 
-    usecase "Realizar login" as UC01
-    usecase "Recuperar senha" as UC02
+    package "Gerenciamento de usuários" {
+        usecase "Consultar usuários" as UC02
+        usecase "Cadastrar usuário" as UC03
+        usecase "Editar usuário" as UC04
+        usecase "Desativar usuário" as UC05
+    }
 
+    package "Gestão de solicitações" {
+        usecase "Criar solicitação" as UC06
+        usecase "Consultar próprias\nsolicitações" as UC07
+        usecase "Consultar solicitações\ndo condomínio" as UC08
+        usecase "Consultar detalhes\nda solicitação" as UC09
+        usecase "Aprovar solicitação" as UC10
+        usecase "Atribuir prestador" as UC11
+        usecase "Cancelar solicitação" as UC12
+        usecase "Reabrir solicitação" as UC13
+    }
 
-    ' ---------- SOLICITAÇÕES ----------
+    package "Execução dos serviços" {
+        usecase "Consultar serviços\natribuídos" as UC14
+        usecase "Atualizar status\ndo serviço" as UC15
+        usecase "Registrar conclusão\ndo serviço" as UC16
+    }
 
-    usecase "Criar solicitação" as UC05
-    usecase "Consultar solicitações" as UC06
-    usecase "Definir prioridade" as UC07
-    usecase "Atribuir responsável" as UC08
+    package "Acompanhamento e avaliação" {
+        usecase "Consultar histórico\nde alterações" as UC17
+        usecase "Aceitar conclusão\ne avaliar serviço" as UC18
+    }
 
-
-    ' ---------- EXECUÇÃO ----------
-
-    usecase "Consultar serviço\natribuído" as UC09
-    usecase "Atualizar status" as UC10
-    usecase "Adicionar observação" as UC11
-    usecase "Registrar conclusão" as UC12
-    usecase "Encerrar solicitação" as UC13
-
-
-    ' ---------- ACOMPANHAMENTO ----------
-
-    usecase "Acompanhar solicitação" as UC14
-    usecase "Consultar histórico" as UC15
-    usecase "Consultar histórico\nde alterações" as UC16
-
-
-    ' ---------- AVALIAÇÃO ----------
-
-    usecase "Avaliar serviço" as UC17
-
-
-    ' ---------- ADMINISTRAÇÃO ----------
-
-    usecase "Cadastrar usuário" as UC03
-    usecase "Gerenciar usuários" as UC04
-    usecase "Visualizar dashboard" as UC18
+    package "Faturamento e indicadores" {
+        usecase "Consultar faturamento" as UC19
+        usecase "Finalizar solicitação\nfaturada" as UC20
+        usecase "Visualizar dashboard" as UC21
+    }
 }
 
 
-' ORGANIZAÇÃO VISUAL
+' AUTENTICAÇÃO
 
-' Linha principal do fluxo
-
-UC01 -[hidden]down- UC05
-UC05 -[hidden]down- UC06
-UC06 -[hidden]down- UC07
-UC07 -[hidden]down- UC08
-UC08 -[hidden]down- UC09
-UC09 -[hidden]down- UC10
-UC10 -[hidden]down- UC11
-UC11 -[hidden]down- UC12
-UC12 -[hidden]down- UC13
-UC13 -[hidden]down- UC14
-UC14 -[hidden]down- UC15
-UC15 -[hidden]down- UC16
-UC16 -[hidden]down- UC17
-
-' Administração em uma coluna lateral
-
-UC03 -[hidden]right- UC07
-UC04 -[hidden]right- UC08
-UC18 -[hidden]right- UC16
-
-
-' ASSOCIAÇÕES
-
-' Usuário
 Usuario --> UC01
-Usuario --> UC02
 
-' Morador
-Morador --> UC05
-Morador --> UC06
-Morador --> UC14
-Morador --> UC15
-Morador --> UC17
 
-' Administrador
+' ADMINISTRADOR DO SISTEMA
+
+Admin --> UC02
 Admin --> UC03
 Admin --> UC04
-Admin --> UC06
-Admin --> UC07
-Admin --> UC08
-Admin --> UC11
-Admin --> UC15
-Admin --> UC16
-Admin --> UC18
+Admin --> UC05
 
-' Prestador
-Prestador --> UC06
+
+' SÍNDICO
+
+Sindico --> UC08
+Sindico --> UC09
+Sindico --> UC10
+Sindico --> UC11
+Sindico --> UC12
+Sindico --> UC13
+Sindico --> UC17
+Sindico --> UC19
+Sindico --> UC20
+Sindico --> UC21
+
+
+' MORADOR
+
+Morador --> UC06
+Morador --> UC07
+Morador --> UC09
+Morador --> UC12
+Morador --> UC13
+Morador --> UC17
+Morador --> UC18
+
+
+' PRESTADOR DE SERVIÇO
+
+Prestador --> UC14
 Prestador --> UC09
-Prestador --> UC10
-Prestador --> UC11
-Prestador --> UC12
-Prestador --> UC13
+Prestador --> UC15
+Prestador --> UC16
+Prestador --> UC17
 
 
-' INCLUDE
+' RELACIONAMENTOS ENTRE CASOS DE USO
 
-UC12 ..> UC10 : <<include>>
-UC13 ..> UC12 : <<include>>
-UC14 ..> UC06 : <<include>>
+UC14 ..> UC09 : <<include>>
+UC16 ..> UC15 : <<include>>
 
+note right of UC12
+  Permitido somente para solicitações
+  nos estados Aberta ou Atribuida.
+  O morador só pode cancelar
+  suas próprias solicitações.
+end note
 
-' EXTEND
+note right of UC13
+  Permitido somente para solicitações
+  Concluidas.
+  O morador só pode reabrir
+  suas próprias solicitações.
+end note
 
-UC17 ..> UC13 : <<extend>>
-UC02 ..> UC01 : <<extend>>
+note right of UC15
+  O prestador atualiza o status
+  de Atribuida para Em andamento
+  e depois para Concluida.
+end note
+
+note right of UC18
+  Disponível após a conclusão
+  do serviço pelo prestador.
+end note
+
+note right of UC20
+  O síndico finaliza a solicitação
+  após o registro do faturamento.
+end note
 
 @enduml

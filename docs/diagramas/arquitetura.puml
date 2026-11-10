@@ -1,54 +1,116 @@
+
 @startuml
-title Arquitetura do Sistema de Gestão de Manutenção
+
+left to right direction
 
 skinparam componentStyle rectangle
+skinparam packageStyle rectangle
+skinparam shadowing false
+skinparam linetype ortho
+skinparam defaultTextAlignment center
+
+skinparam package {
+    BorderColor #64748B
+    BackgroundColor #F8FAFC
+}
+skinparam component {
+    BorderColor #475569
+    BackgroundColor #FFFFFF
+}
+skinparam database {
+    BorderColor #475569
+    BackgroundColor #E2E8F0
+}
+
+' =====================================
+' ATORES
+' =====================================
 
 actor "Morador" as Morador
 actor "Administrador" as Admin
 actor "Prestador de Serviço" as Prestador
+actor "Síndico" as Sin
 
-package "Cliente" {
-    component "Interface Web" as Frontend
+' =====================================
+' CAMADA DE APRESENTAÇÃO
+' =====================================
+
+package "Camada de Apresentação" {
+    component "Aplicação Web\nReact.js" as Frontend
 }
-
-package "Servidor" {
-
-    component "API / Controladores" as API
-
-    package "Camada de Negócio" {
-        component "Autenticação e\nAutorização" as Auth
-        component "Gestão de Usuários" as Users
-        component "Gestão de Solicitações" as Requests
-        component "Acompanhamento\ne Histórico" as History
-        component "Conclusão e\nAvaliação" as Evaluation
-        component "Dashboard" as Dashboard
-    }
-
-    component "Camada de Persistência" as Persistence
-}
-
-database "Banco de Dados" as DB
 
 Morador --> Frontend
 Admin --> Frontend
+Sin --> Frontend
 Prestador --> Frontend
+
+' =====================================
+' CAMADA DE APLICAÇÃO E NEGÓCIO
+' =====================================
+
+package "Backend - Node.js / Express" {
+
+    component "API REST\nRotas e Controladores" as API
+
+    package "Serviços de Aplicação" {
+
+        component "Autenticação e\nAutorização" as Auth
+        component "Gerenciamento\nde Usuários" as Users
+        component "Gerenciamento\nde Solicitações" as Requests
+        component "Atribuição e\nAtualização de Status" as Assignment
+        component "Histórico de\nAlterações" as History
+        component "Avaliações" as Evaluation
+        component "Faturamento" as Billing
+        component "Dashboard e\nIndicadores" as Dashboard
+    }
+
+    component "Camada de Acesso\n a Dados (Pool PostgreSQL)" as Repository
+}
+
+' =====================================
+' CAMADA DE DADOS
+' =====================================
+
+package "Persistência" {
+    database "PostgreSQL" as DB
+}
+
+' =====================================
+' COMUNICAÇÃO
+' =====================================
 
 Frontend --> API : HTTP / JSON
 
 API --> Auth
 API --> Users
 API --> Requests
+API --> Assignment
 API --> History
 API --> Evaluation
+API --> Billing
 API --> Dashboard
 
-Auth --> Persistence
-Users --> Persistence
-Requests --> Persistence
-History --> Persistence
-Evaluation --> Persistence
-Dashboard --> Persistence
+Auth --> Repository
+Users --> Repository
+Requests --> Repository
+Assignment --> Repository
+History --> Repository
+Evaluation --> Repository
+Billing --> Repository
+Dashboard --> Repository
 
-Persistence --> DB
+Repository --> DB : SQL
+
+' =====================================
+' TECNOLOGIAS COMPLEMENTARES
+' =====================================
+
+note right of Auth
+  JWT
+  Controle de acesso por papel
+  (RBAC)
+end note
+
+
 
 @enduml
