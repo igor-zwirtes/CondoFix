@@ -23,6 +23,7 @@ export default function Solicitacoes() {
   const [solicitacoes, setSolicitacoes] = useState([]);
   const [carregando, setCarregando] = useState(true);
   const [erro, setErro] = useState('');
+  const [ordenacao, setOrdenacao] = useState('recentes');
 
   useEffect(() => {
     async function carregarSolicitacoes() {
@@ -55,6 +56,14 @@ export default function Solicitacoes() {
       .replace(/\s+/g, '-');
   }
 
+  function classePrioridade(prioridade = '') {
+    return prioridade
+      .toLowerCase()
+      .normalize('NFD')
+      .replace(/[\u0300-\u036f]/g, '')
+      .replace(/\s+/g, '-');
+  }
+
   function handleLogout() {
     localStorage.removeItem('@CondoFix:token');
     localStorage.removeItem('@CondoFix:user');
@@ -64,6 +73,51 @@ export default function Solicitacoes() {
   function handleVerDetalhes(id) {
     navigate(`/solicitacoes/${id}`);
   }
+
+  function normalizarPrioridade(prioridade = '') {
+    return prioridade
+      .toLowerCase()
+      .normalize('NFD')
+      .replace(/[\u0300-\u036f]/g, '')
+      .trim();
+  }
+
+  const solicitacoesOrdenadas = [...solicitacoes].sort((a, b) => {
+    // Ordem de pedido
+    if (ordenacao === 'antigas') {
+      return new Date(a.data_abertura || 0) -
+        new Date(b.data_abertura || 0);
+    }
+
+    if (ordenacao === 'recentes') {
+      return new Date(b.data_abertura || 0) -
+        new Date(a.data_abertura || 0);
+    }
+
+    // Ordem de prioridade
+    const prioridades = {
+      baixa: 1,
+      normal: 2,
+      alta: 3,
+      urgente: 4
+    };
+
+    const prioridadeA =
+      prioridades[normalizarPrioridade(a.prioridade)] ?? 99;
+
+    const prioridadeB =
+      prioridades[normalizarPrioridade(b.prioridade)] ?? 99;
+
+    if (ordenacao === 'prioridade-crescente') {
+      return prioridadeA - prioridadeB;
+    }
+
+    if (ordenacao === 'prioridade-decrescente') {
+      return prioridadeB - prioridadeA;
+    }
+
+    return 0;
+  });
 
   return (
     <div className="solicitacoes-layout">
@@ -145,11 +199,23 @@ export default function Solicitacoes() {
                   : 'Todas as solicitações'}
               </h3>
 
-              <span className="solicitacoes-count">
-                {solicitacoes.length}
-                {' '}
-                {solicitacoes.length === 1 ? 'solicitação' : 'solicitações'}
-              </span>
+              <div className="solicitacoes-controls">
+
+                <select
+                  className="solicitacoes-sort"
+                  value={ordenacao}
+                  onChange={(e) => setOrdenacao(e.target.value)}
+                >
+                  <option value="recentes">Mais recentes primeiro</option>
+                  <option value="antigas">Mais antigas primeiro</option>
+                  <option value="prioridade-crescente">
+                    Prioridade crescente
+                  </option>
+                  <option value="prioridade-decrescente">
+                    Prioridade decrescente
+                  </option>
+                </select>
+              </div>
             </div>
 
             {carregando ? (
@@ -168,7 +234,7 @@ export default function Solicitacoes() {
               </p>
             ) : (
               <div className="solicitacoes-list">
-                {solicitacoes.map((solicitacao) => (
+                {solicitacoesOrdenadas.map((solicitacao) => (
                   <button
                     type="button"
                     className="solicitacao-item"
@@ -190,8 +256,13 @@ export default function Solicitacoes() {
                         </span>
                       )}
 
-                      <span>
-                        Prioridade: {solicitacao.prioridade}
+                      <span className="solicitacao-prioridade">
+                        Prioridade: 
+                        <span
+                          className={`prioridade-badge prioridade-${classePrioridade(solicitacao.prioridade)}`}
+                        >
+                          {solicitacao.prioridade}
+                        </span>
                       </span>
                     </div>
 
