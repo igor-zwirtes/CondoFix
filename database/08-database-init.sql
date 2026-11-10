@@ -238,40 +238,120 @@ ON CONFLICT (soid) DO NOTHING;
 -- 9. HISTORICO DE ALTERACOES
 -- =====================================================
 
-INSERT INTO "ALTERACOES" (soid, usrid, typid, altdcp)
+INSERT INTO "ALTERACOES" (soid, usrid, typid, altdcp, alttim)
 SELECT
     s.soid,
     responsavel.usrid,
     t.typid,
-    dados.descricao
+    dados.descricao,
+    dados.data_alteracao
 FROM (
     VALUES
         ('morador@condofix.local',
          'Vazamento na pia',
          'morador@condofix.local',
-         'Descricao',
-         'Solicitacao criada pelo morador.'),
+         'Criacao',
+         'Solicitacao criada pelo morador.',
+         TIMESTAMP '2026-01-01 10:00:00'),
 
         ('morador@condofix.local',
          'Vazamento na pia',
          'sindico@condofix.local',
          'Prioridade',
-         'Prioridade alterada para Alta.'),
+         'Prioridade alterada para Alta.',
+         TIMESTAMP '2026-01-01 10:05:00'),
 
         ('morador@condofix.local',
          'Vazamento na pia',
          'sindico@condofix.local',
-         'Atribuicao',
-         'Prestador designado para realizar o servico.'),
+         'Prestador',
+         'Prestador Carlos Souza atribuído à solicitação.',
+         TIMESTAMP '2026-01-01 10:10:00'),
 
         ('morador@condofix.local',
          'Vazamento na pia',
          'prestador@condofix.local',
          'Conclusao',
-         'Reparo realizado com sucesso.')
+         'Reparo realizado com sucesso.',
+         TIMESTAMP '2026-01-01 10:30:00'),
+
+        ('morador@condofix.local',
+        'Vazamento na pia',
+        'morador@condofix.local',
+        'Status',
+        'Avaliação registrada pelo morador.',
+        TIMESTAMP '2026-01-01 10:35:00'),
+
+        ('morador@condofix.local',
+         'Lampada queimada',
+         'morador@condofix.local',
+         'Criacao',
+         'Solicitacao criada pelo morador.',
+         TIMESTAMP '2026-01-02 10:00:00'),
+
+        ('morador@condofix.local',
+         'Lampada queimada',
+         'sindico@condofix.local',
+         'Prestador',
+         'Prestador Carlos Souza atribuído à solicitação.',
+         TIMESTAMP '2026-01-02 10:05:00'),
+
+        ('morador@condofix.local',
+         'Lampada queimada',
+         'prestador@condofix.local',
+         'Status',
+         'Status alterado para Em andamento.',
+         TIMESTAMP '2026-01-02 10:10:00'),
+
+        ('morador@condofix.local',
+         'Torneira com vazamento',
+         'morador@condofix.local',
+         'Criacao',
+         'Solicitacao criada pelo morador.',
+         TIMESTAMP '2026-01-03 10:00:00'),
+
+        ('morador@condofix.local',
+         'Torneira com vazamento',
+         'sindico@condofix.local',
+         'Status',
+         'Status alterado para Cancelada.',
+         TIMESTAMP '2026-01-03 10:05:00'),
+
+        ('maria@condofix.local',
+         'Tomada sem energia',
+         'maria@condofix.local',
+         'Criacao',
+         'Solicitacao criada pela moradora Maria Oliveira.',
+         TIMESTAMP '2026-11-08 09:00:00'),
+
+        ('maria@condofix.local',
+         'Tomada sem energia',
+         'sindico@condofix.local',
+         'Prioridade',
+         'Prioridade alterada para Urgente.',
+         TIMESTAMP '2026-11-08 09:15:00'),
+
+        ('maria@condofix.local',
+         'Tomada sem energia',
+         'sindico@condofix.local',
+         'Prestador',
+         'Prestador Ana Costa atribuído à solicitação.',
+         TIMESTAMP '2026-11-08 09:30:00'),
+
+        ('maria@condofix.local',
+         'Porta do quarto com defeito',
+         'maria@condofix.local',
+         'Criacao',
+         'Solicitacao criada pela moradora Maria Oliveira.',
+         TIMESTAMP '2026-11-08 10:00:00')
+
 ) AS dados(
-    email_solicitante, titulo, email_responsavel,
-    tipo, descricao
+    email_solicitante,
+    titulo,
+    email_responsavel,
+    tipo,
+    descricao,
+    data_alteracao
 )
 JOIN "USUARIOS" solicitante
     ON solicitante.usreml = dados.email_solicitante
@@ -292,6 +372,7 @@ WHERE NOT EXISTS (
 );
 
 
+
 -- =====================================================
 -- 10. AVALIACOES
 -- =====================================================
@@ -310,6 +391,17 @@ WHERE u.usreml = 'morador@condofix.local'
   AND s.sotit = 'Vazamento na pia'
   AND st.stsnom = 'Concluida'
 ON CONFLICT (soid) DO NOTHING;
+
+UPDATE "SOLICITACOES" s
+SET stsid = st.stsid
+FROM "STATUS_SOLICITACAO" st
+WHERE s.sotit = 'Vazamento na pia'
+  AND st.stsnom = 'Aceita'
+  AND EXISTS (
+      SELECT 1
+      FROM "AVALIACOES" a
+      WHERE a.soid = s.soid
+  );
 
 
 COMMIT;

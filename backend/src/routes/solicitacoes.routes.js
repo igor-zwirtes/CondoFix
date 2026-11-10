@@ -87,6 +87,85 @@ router.get(
   }
 );
 
+// Retorna os dados necessários para criar uma solicitação.
+router.get(
+  "/opcoes",
+  autenticar,
+  exigirPapel("USUARIO"),
+  async (req, res, next) => {
+    try {
+      // Buscar o apartamento vinculado ao morador autenticado.
+      const apartamento = await pool.query(
+        `SELECT
+           a.aptid AS id,
+           a.aptnum AS numero,
+           a.aptflr AS andar,
+           a.aptblk AS bloco
+         FROM "MORADORES" m
+         JOIN "APARTAMENTOS" a
+           ON a.aptid = m.aptid
+         WHERE m.usrid = $1`,
+        [req.usuario.id]
+      );
+
+      if (apartamento.rows.length === 0) {
+        return res.status(404).json({
+          success: false,
+          error: {
+            code: "APARTMENT_NOT_FOUND",
+            message: "Apartamento do morador não encontrado.",
+          },
+        });
+      }
+
+      // Buscar categorias cadastradas.
+      const categorias = await pool.query(
+        `SELECT
+           catid AS id,
+           catnom AS nome
+         FROM "CATEGORIAS_SOLICITACAO"
+         ORDER BY catnom`
+      );
+
+      return res.status(200).json({
+        success: true,
+        data: {
+          apartamento: apartamento.rows[0],
+          categorias: categorias.rows,
+        },
+      });
+    } catch (error) {
+      return next(error);
+    }
+  }
+);
+
+router.get(
+  "/prestadores",
+  autenticar,
+  exigirPapel("ADMIN", "ADMINISTRADOR"),
+  async (req, res, next) => {
+    try {
+      const resultado = await pool.query(
+        `SELECT
+           p.usrid AS id,
+           u.usrnam AS nome
+         FROM "PRESTADORES_SERVICO" p
+         JOIN "USUARIOS" u
+           ON u.usrid = p.usrid
+         ORDER BY u.usrnam ASC`
+      );
+
+      return res.json({
+        success: true,
+        data: resultado.rows,
+      });
+    } catch (error) {
+      return next(error);
+    }
+  }
+);
+
 router.get(
   "/:id",
   autenticar,
@@ -136,8 +215,34 @@ router.get(
       }
 
       let sql = `
-        SELECT s.soid, s.sotit, s.sodcp, s.soopn, s.socls
+        SELECT
+          s.soid AS id,
+          s.sotit AS titulo,
+          s.sodcp AS descricao,
+          s.soopn AS data_abertura,
+          s.socls AS data_fechamento,
+          st.stsnom AS status,
+          pr.prinom AS prioridade,
+          c.catnom AS categoria,
+          s.usrid AS solicitante_id,
+          solicitante.usrnam AS solicitante,
+          s.pvdid AS prestador_id,
+          prestador.usrnam AS prestador,
+          a.evascr AS nota_avaliacao,
+          a.evanot AS comentario_avaliacao
         FROM "SOLICITACOES" s
+        JOIN "STATUS_SOLICITACAO" st
+          ON st.stsid = s.stsid
+        JOIN "PRIORIDADES_SOLICITACAO" pr
+          ON pr.priid = s.priid
+        JOIN "CATEGORIAS_SOLICITACAO" c
+          ON c.catid = s.catid
+        JOIN "USUARIOS" solicitante
+          ON solicitante.usrid = s.usrid
+        LEFT JOIN "USUARIOS" prestador
+          ON prestador.usrid = s.pvdid
+        LEFT JOIN "AVALIACOES" a
+          ON a.soid = s.soid
         WHERE s.soid = $1
       `;
 
@@ -251,13 +356,14 @@ router.get(
   }
 );
 
+
 router.patch(
   "/:id/status",
   autenticar,
   exigirPapel("PRESTADOR_SERVICO"),
   async (req, res, next) => {
     const id = Number(req.params.id);
-    const { status } = req.body;
+    const { status, descricao } = req.body;
 
     if (!Number.isSafeInteger(id) || id <= 0) {
       return res.status(400).json({
@@ -274,13 +380,29 @@ router.patch(
       "Em andamento": "Concluida",
     };
 
-    if (typeof status !== "string" ||
-        !Object.values(transicoesPermitidas).includes(status)) {
+    if (
+      typeof status !== "string" ||
+      !Object.values(transicoesPermitidas).includes(status)
+    ) {
       return res.status(400).json({
         success: false,
         error: {
           code: "INVALID_STATUS",
           message: "Status solicitado inválido.",
+        },
+      });
+    }
+
+    // A conclusão exige uma descrição da solução realizada.
+    if (
+      status === "Concluida" &&
+      (typeof descricao !== "string" || !descricao.trim())
+    ) {
+      return res.status(400).json({
+        success: false,
+        error: {
+          code: "SOLUTION_REQUIRED",
+          message: "Informe a solução realizada antes de concluir o serviço.",
         },
       });
     }
@@ -345,12 +467,37 @@ router.patch(
         throw new Error(`Status não cadastrado: ${status}`);
       }
 
+      // Buscar o tipo correto para registrar no histórico.
+      const nomeTipo = status === "Concluida" ? "Conclusao" : "Status";
+
+      const tipoAlteracao = await client.query(
+        `SELECT typid
+         FROM "TIPOS_ALTERACAO"
+         WHERE typnom = $1`,
+        [nomeTipo]
+      );
+
+      if (tipoAlteracao.rows.length === 0) {
+        throw new Error(`Tipo de alteração não cadastrado: ${nomeTipo}`);
+      }
+
+      // Atualizar o status e a data de fechamento, quando concluído.
       await client.query(
         `UPDATE "SOLICITACOES"
-         SET stsid = $1
-         WHERE soid = $2`,
-        [novoStatus.rows[0].stsid, id]
+         SET stsid = $1,
+             socls = CASE
+               WHEN $2 = 'Concluida' THEN CURRENT_TIMESTAMP
+               ELSE NULL
+             END
+         WHERE soid = $3`,
+        [novoStatus.rows[0].stsid, status, id]
       );
+
+      // Registrar a mudança no histórico.
+      const descricaoHistorico =
+        status === "Concluida"
+          ? `Serviço concluído. Solução realizada: ${descricao.trim()}`
+          : `Status alterado de "${solicitacao.stsnom}" para "${status}".`;
 
       await client.query(
         `INSERT INTO "ALTERACOES" (soid, usrid, typid, altdcp)
@@ -358,8 +505,8 @@ router.patch(
         [
           id,
           req.usuario.id,
-          6,
-          `Status alterado de "${solicitacao.stsnom}" para "${status}".`,
+          tipoAlteracao.rows[0].typid,
+          descricaoHistorico,
         ]
       );
 
@@ -381,6 +528,8 @@ router.patch(
     }
   }
 );
+
+
 
 
 router.patch(
@@ -419,11 +568,19 @@ router.patch(
     try {
       await client.query("BEGIN");
 
+      // Busca a solicitação e o nome do prestador atualmente atribuído.
       const consulta = await client.query(
-        `SELECT s.soid, s.pvdid, s.stsid, st.stsnom
+        `SELECT
+           s.soid,
+           s.pvdid,
+           s.stsid,
+           st.stsnom,
+           u.usrnam AS prestador_atual_nome
          FROM "SOLICITACOES" s
          JOIN "STATUS_SOLICITACAO" st
            ON st.stsid = s.stsid
+         LEFT JOIN "USUARIOS" u
+           ON u.usrid = s.pvdid
          WHERE s.soid = $1
          FOR UPDATE OF s`,
         [id]
@@ -431,6 +588,7 @@ router.patch(
 
       if (consulta.rows.length === 0) {
         await client.query("ROLLBACK");
+
         return res.status(404).json({
           success: false,
           error: {
@@ -442,30 +600,35 @@ router.patch(
 
       const solicitacao = consulta.rows[0];
 
-      if (
-        solicitacao.stsnom !== "Aprovada" ||
-        solicitacao.pvdid !== null
-      ) {
+      // Impede atribuição em solicitações encerradas.
+      if (solicitacao.stsnom === "Encerrada") {
         await client.query("ROLLBACK");
+
         return res.status(409).json({
           success: false,
           error: {
             code: "REQUEST_NOT_ASSIGNABLE",
             message:
-              "A solicitação precisa estar aprovada e sem prestador atribuído.",
+              "Não é possível atribuir um prestador a uma solicitação encerrada.",
           },
         });
       }
 
+      // Verifica se o prestador existe e busca seu nome.
       const prestador = await client.query(
-        `SELECT p.usrid
+        `SELECT
+           p.usrid,
+           u.usrnam
          FROM "PRESTADORES_SERVICO" p
+         JOIN "USUARIOS" u
+           ON u.usrid = p.usrid
          WHERE p.usrid = $1`,
         [prestadorId]
       );
 
       if (prestador.rows.length === 0) {
         await client.query("ROLLBACK");
+
         return res.status(404).json({
           success: false,
           error: {
@@ -475,6 +638,24 @@ router.patch(
         });
       }
 
+      // Impede atribuir novamente o mesmo prestador.
+      if (
+        solicitacao.pvdid !== null &&
+        Number(solicitacao.pvdid) === Number(prestadorId)
+      ) {
+        await client.query("ROLLBACK");
+
+        return res.status(409).json({
+          success: false,
+          error: {
+            code: "PROVIDER_ALREADY_ASSIGNED",
+            message:
+              "Este prestador já está atribuído à solicitação.",
+          },
+        });
+      }
+
+      // Busca o status de solicitação atribuída.
       const statusAtribuida = await client.query(
         `SELECT stsid
          FROM "STATUS_SOLICITACAO"
@@ -486,6 +667,7 @@ router.patch(
         throw new Error('Status "Atribuida" não cadastrado.');
       }
 
+      // Atualiza o prestador responsável e o status.
       await client.query(
         `UPDATE "SOLICITACOES"
          SET pvdid = $1,
@@ -494,6 +676,7 @@ router.patch(
         [prestadorId, statusAtribuida.rows[0].stsid, id]
       );
 
+      // Registra a atribuição ou substituição no histórico.
       await client.query(
         `INSERT INTO "ALTERACOES" (soid, usrid, typid, altdcp)
          VALUES ($1, $2, $3, $4)`,
@@ -501,7 +684,9 @@ router.patch(
           id,
           req.usuario.id,
           3,
-          `Prestador atribuído: usuário ${prestadorId}.`,
+          solicitacao.pvdid === null
+            ? `Prestador ${prestador.rows[0].usrnam} atribuído à solicitação.`
+            : `Prestador responsável alterado de ${solicitacao.prestador_atual_nome} para ${prestador.rows[0].usrnam}.`,
         ]
       );
 
@@ -1098,7 +1283,7 @@ router.patch(
           Number(id),
           usuarioId,
           tipoStatusId,
-          "Solicitação aceita pelo morador e avaliação registrada. Status: Concluida -> Aceita.",
+          "Avaliação registrada pelo morador.",
         ]
       );
 

@@ -1,0 +1,137 @@
+/* Fundo da página */
+.login-page {
+  min-height: 100vh;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 24px;
+  background-color: #F7F7F3;
+  font-family: 'Inter', sans-serif;
+}
+
+/* Cartão de login */
+.login-card {
+  width: 100%;
+  max-width: 400px;
+  padding: 40px;
+  background-color: #FFFFFF;
+  border-radius: 20px;
+  border: 1px solid #E5E0D2;
+}
+
+/* Logo */
+.login-logo {
+  margin: 0 0 32px;
+  text-align: center;
+  font-size: 32px;
+  font-weight: 700;
+  color: #202A27;
+  letter-spacing: -1px;
+}
+
+.login-logo span {
+  color: #A5DB79;
+}
+
+/* Título e descrição */
+.login-heading {
+  margin-bottom: 28px;
+  text-align: center;
+}
+
+.login-heading h2 {
+  margin: 0 0 8px;
+  color: #202A27;
+  font-size: 24px;
+  font-weight: 600;
+}
+
+.login-heading p {
+  margin: 0;
+  color: #777777;
+  font-size: 14px;
+}
+
+/* Formulário */
+.login-form {
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+}
+
+.login-field {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.login-field label {
+  color: #202A27;
+  font-size: 14px;
+  font-weight: 600;
+}
+
+.login-field input {
+  width: 100%;
+  box-sizing: border-box;
+  padding: 14px;
+  border: 1px solid #E5E0D2;
+  border-radius: 10px;
+  background-color: #F7F7F3;
+  color: #202A27;
+  font-size: 14px;
+  outline: none;
+  transition: border-color 0.2s;
+}
+
+.login-field input:focus {
+  border-color: #8FCB62;
+}
+
+.login-field input::placeholder {
+  color: #999999;
+}
+
+/* Botão */
+.login-button {
+  width: 100%;
+  padding: 14px;
+  margin-top: 4px;
+  border: none;
+  border-radius: 10px;
+  background-color: #C5FA91;
+  color: #202A27;
+  font-size: 16px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background-color 0.2s;
+}
+
+.login-button:hover {
+  background-color: #B2EB7C;
+}
+
+/* Mensagem de erro */
+.login-error {
+  margin: 0;
+  padding: 10px;
+  border-radius: 8px;
+  background-color: #FCE8E5;
+  color: #B42318;
+  font-size: 13px;
+}
+
+/* Responsividade */
+@media (max-width: 480px) {
+  .login-page {
+    padding: 16px;
+  }
+
+  .login-card {
+    padding: 28px 22px;
+  }
+
+  .login-logo {
+    font-size: 28px;
+  }
+}
