@@ -1,4 +1,3 @@
-
 -- =====================================================
 -- 1. USUARIOS E CONTROLE DE ACESSO
 -- =====================================================
@@ -8,11 +7,13 @@ CREATE TABLE "USUARIOS" (
     usrnam VARCHAR(255) NOT NULL,
     usrphn VARCHAR(20),
     usreml VARCHAR(255) NOT NULL,
+    usrcpf CHAR(11),
     usrpsw VARCHAR(255) NOT NULL,
     usract BOOLEAN NOT NULL DEFAULT TRUE,
 
     CONSTRAINT PK_USUARIOS PRIMARY KEY (usrid),
-    CONSTRAINT UQ_USUARIOS_EMAIL UNIQUE (usreml)
+    CONSTRAINT UQ_USUARIOS_EMAIL UNIQUE (usreml),
+    CONSTRAINT UQ_USUARIOS_CPF UNIQUE (usrcpf)
 );
 
 -- Papeis da aplicacao

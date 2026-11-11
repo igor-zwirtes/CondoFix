@@ -1,4 +1,3 @@
-
 BEGIN;
 
 -- Adia os constraint triggers adiáveis até o fim da transação.
@@ -74,6 +73,28 @@ VALUES
     ('Sindica do Bloco B', '21990000010',
      'sindica2@condofix.local', '$2b$12$5WXwq1qQyEeIW/Ub3tYf8eCbz72jl7FxWquhKnJXmAK6GCqLcGnE')
 ON CONFLICT (usreml) DO NOTHING;
+
+-- =====================================================
+-- 3.1 CPF DOS USUARIOS
+-- =====================================================
+
+UPDATE "USUARIOS" u
+SET usrcpf = dados.cpf
+FROM (
+    VALUES
+        ('admin@condofix.local', '11122233396'),
+        ('sindico@condofix.local', '22233344405'),
+        ('morador@condofix.local', '33344455508'),
+        ('maria@condofix.local', '44455566619'),
+        ('prestador@condofix.local', '52998224725'),
+        ('ana.prestador@condofix.local', '11144477735'),
+        ('pedro@condofix.local', '55566677720'),
+        ('roberto.prestador@condofix.local', '12345678909'),
+        ('admin2@condofix.local', '66677788830'),
+        ('sindica2@condofix.local', '77788899941')
+) AS dados(email, cpf)
+WHERE u.usreml = dados.email
+  AND u.usrcpf IS NULL;
 
 
 -- =====================================================
