@@ -557,8 +557,10 @@ const atribuirPrestador = async (req, res, next) => {
 
       const solicitacao = consulta.rows[0];
 
-      // Prestadores só podem ser atribuídos após a aprovação da solicitação.
-      if (solicitacao.stsnom !== "Aprovada") {
+      // Prestadores só podem ser atribuídos a solicitações ainda em andamento.
+      const statusAtribuiveis = ["Aberta", "Aprovada", "Atribuida"];
+
+      if (!statusAtribuiveis.includes(solicitacao.stsnom)) {
         await client.query("ROLLBACK");
 
         return res.status(409).json({
@@ -566,7 +568,7 @@ const atribuirPrestador = async (req, res, next) => {
           error: {
             code: "REQUEST_NOT_ASSIGNABLE",
             message:
-              "Somente solicitações aprovadas podem receber um prestador.",
+              "Esta solicitação não pode mais receber um prestador.",
           },
         });
       }
@@ -1495,19 +1497,23 @@ const finalizar = async (req, res, next) => {
 
       const solicitacao = resultado.rows[0];
 
-      if (solicitacao.stsnom !== "Faturada") {
+      if (!["Aceita", "Faturada"].includes(solicitacao.stsnom)) {
         await client.query("ROLLBACK");
 
         return res.status(409).json({
           success: false,
           error: {
             code: "INVALID_STATUS_TRANSITION",
-            message: "Somente solicitações faturadas podem ser finalizadas.",
+            message:
+              "Somente solicitações aceitas ou faturadas podem ser finalizadas.",
           },
         });
       }
 
-      if (solicitacao.faturamento_id === null) {
+      if (
+        solicitacao.stsnom === "Faturada" &&
+        solicitacao.faturamento_id === null
+      ) {
         await client.query("ROLLBACK");
 
         return res.status(409).json({
@@ -1554,7 +1560,9 @@ const finalizar = async (req, res, next) => {
           id,
           req.usuario.id,
           tipoResultado.rows[0].typid,
-          "Solicitação finalizada após conferência do faturamento. Status alterado de Faturada para Finalizada.",
+          solicitacao.stsnom === "Faturada"
+            ? "Solicitação finalizada. Status alterado de Faturada para Finalizada."
+            : "Solicitação finalizada. Status alterado de Aceita para Finalizada.",
         ]
       );
 
@@ -1849,10 +1857,13 @@ const atualizarPrioridade = async (req, res, next) => {
         `SELECT
            s.soid,
            s.priid,
-           p.prinom AS prioridade_atual
+           p.prinom AS prioridade_atual,
+           st.stsnom
          FROM "SOLICITACOES" s
          JOIN "PRIORIDADES_SOLICITACAO" p
            ON p.priid = s.priid
+         JOIN "STATUS_SOLICITACAO" st
+           ON st.stsid = s.stsid
          WHERE s.soid = $1
          FOR UPDATE OF s`,
         [solicitacaoId]
@@ -1871,6 +1882,27 @@ const atualizarPrioridade = async (req, res, next) => {
       }
 
       const solicitacao = consulta.rows[0];
+
+      const statusBloqueados = [
+        "Concluida",
+        "Aceita",
+        "Faturada",
+        "Finalizada",
+        "Cancelada",
+      ];
+
+      if (statusBloqueados.includes(solicitacao.stsnom)) {
+        await client.query("ROLLBACK");
+
+        return res.status(409).json({
+          success: false,
+          error: {
+            code: "REQUEST_NOT_EDITABLE",
+            message:
+              "Esta solicitação não pode mais ter a prioridade alterada.",
+          },
+        });
+      }
 
       // Não registrar alteração se a prioridade já for a mesma.
       if (solicitacao.prioridade_atual === prioridade) {

@@ -55,6 +55,7 @@ const SELECT_USUARIO = `
   SELECT
     u.usrid AS id,
     u.usrnam AS nome,
+    u.usrcpf AS cpf,
     u.usrphn AS telefone,
     u.usreml AS email,
     u.usract AS ativo,
@@ -293,21 +294,12 @@ const criar = async (req, res, next) => {
     return respostaErro(res, 400, "INVALID_EMAIL", "E-mail inválido.");
   }
 
-  if (telefoneNormalizado && !/^\d{11}$/.test(telefoneNormalizado)) {
-    return respostaErro(
-      res,
-      400,
-      "INVALID_PHONE",
-      "O telefone deve ter 11 dígitos (DDD + número), somente números."
-    );
-  }
-
-  if (typeof senha !== "string") {
+  if (typeof senha !== "string" || senha.length < 8) {
     return respostaErro(
       res,
       400,
       "INVALID_PASSWORD",
-      "Senha inválida."
+      "A senha deve ter pelo menos 8 caracteres."
     );
   }
 
@@ -344,15 +336,12 @@ const criar = async (req, res, next) => {
   const cpfNormalizado =
     typeof cpf === "string" ? cpf.replace(/\D/g, "") : "";
 
-  if (
-    papelNormalizado === "PRESTADOR_SERVICO" &&
-    !cpfValido(cpfNormalizado)
-  ) {
+  if (!cpfValido(cpfNormalizado)) {
     return respostaErro(
       res,
       400,
       "INVALID_CPF",
-      "Informe um CPF válido para o prestador."
+      "Informe um CPF válido."
     );
   }
 
@@ -387,6 +376,21 @@ const criar = async (req, res, next) => {
         409,
         "EMAIL_ALREADY_REGISTERED",
         "Já existe um usuário cadastrado com este e-mail."
+      );
+    }
+
+    const cpfExistente = await client.query(
+      `SELECT usrid FROM "USUARIOS" WHERE usrcpf = $1`,
+      [cpfNormalizado]
+    );
+
+    if (cpfExistente.rowCount > 0) {
+      await client.query("ROLLBACK");
+      return respostaErro(
+        res,
+        409,
+        "CPF_ALREADY_REGISTERED",
+        "Já existe um usuário cadastrado com este CPF."
       );
     }
 
@@ -427,14 +431,15 @@ const criar = async (req, res, next) => {
     const novoUsuario = await client.query(
       `
         INSERT INTO "USUARIOS"
-          (usrnam, usrphn, usreml, usrpsw, usract)
-        VALUES ($1, $2, $3, $4, TRUE)
+          (usrnam, usrphn, usreml, usrcpf, usrpsw, usract)
+        VALUES ($1, $2, $3, $4, $5, TRUE)
         RETURNING usrid
       `,
       [
         nomeNormalizado,
         telefoneNormalizado || null,
         emailNormalizado,
+        cpfNormalizado,
         senhaHash,
       ]
     );
@@ -564,13 +569,13 @@ const atualizar = async (req, res, next) => {
 
   if (
     senha !== undefined &&
-    (typeof senha !== "string" || !senha)
+    (typeof senha !== "string" || senha.length < 8)
   ) {
     return respostaErro(
       res,
       400,
       "INVALID_PASSWORD",
-      "Senha inválida."
+      "A senha deve ter pelo menos 8 caracteres."
     );
   }
 

@@ -335,11 +335,13 @@ describe("Gerenciamento de usuários", () => {
           email: "novo.morador@condofix.test",
           senha: SENHA,
           papel: "USUARIO",
+          cpf: "12312312387",
           apartamentoId,
         });
 
       expect(response.status).toBe(201);
       expect(response.body.success).toBe(true);
+      expect(response.body.data.cpf.trim()).toBe("12312312387");
       expect(response.body.data.email).toBe("novo.morador@condofix.test");
       expect(response.body.data.papeis).toContain("USUARIO");
       expect(response.body.data.apartamento).toBeTruthy();
@@ -370,6 +372,7 @@ describe("Gerenciamento de usuários", () => {
         .send({
           nome: "Duplicado",
           email: morador.email,
+          cpf: "23423423498",
           senha: SENHA,
           papel: "ADMINISTRADOR",
         });
@@ -393,20 +396,19 @@ describe("Gerenciamento de usuários", () => {
       expect(response.body.error.code).toBe("INVALID_EMAIL");
     });
 
-    it("deve rejeitar telefone com tamanho diferente de 11 dígitos", async () => {
+    it("deve rejeitar senha com menos de oito caracteres", async () => {
       const response = await request(app)
         .post("/api/usuarios")
         .set("Authorization", `Bearer ${adminToken}`)
         .send({
-          nome: "Telefone Curto",
-          email: "telefone.curto@condofix.test",
-          telefone: "2199999",
-          senha: SENHA,
+          nome: "Senha Curta",
+          email: "senha.curta@condofix.test",
+          senha: "1234567",
           papel: "ADMINISTRADOR",
         });
 
       expect(response.status).toBe(400);
-      expect(response.body.error.code).toBe("INVALID_PHONE");
+      expect(response.body.error.code).toBe("INVALID_PASSWORD");
     });
 
     it("deve rejeitar cadastro de ADMIN pela API", async () => {
@@ -454,6 +456,48 @@ describe("Gerenciamento de usuários", () => {
       expect(response.body.error.code).toBe("INVALID_APARTMENT");
     });
 
+    it("deve exigir CPF para cadastrar qualquer perfil", async () => {
+      const response = await request(app)
+        .post("/api/usuarios")
+        .set("Authorization", `Bearer ${adminToken}`)
+        .send({
+          nome: "Morador Sem CPF",
+          email: "sem.cpf@condofix.test",
+          senha: SENHA,
+          papel: "USUARIO",
+          apartamentoId,
+        });
+
+      expect(response.status).toBe(400);
+      expect(response.body.error.code).toBe("INVALID_CPF");
+    });
+
+    it("deve impedir cadastro com CPF já utilizado", async () => {
+      const dados = {
+        nome: "Primeiro CPF",
+        email: "primeiro.cpf@condofix.test",
+        senha: SENHA,
+        papel: "USUARIO",
+        cpf: "56756756710",
+        apartamentoId,
+      };
+
+      const primeiro = await request(app)
+        .post("/api/usuarios")
+        .set("Authorization", `Bearer ${adminToken}`)
+        .send(dados);
+
+      expect(primeiro.status).toBe(201);
+
+      const segundo = await request(app)
+        .post("/api/usuarios")
+        .set("Authorization", `Bearer ${adminToken}`)
+        .send({ ...dados, email: "segundo.cpf@condofix.test" });
+
+      expect(segundo.status).toBe(409);
+      expect(segundo.body.error.code).toBe("CPF_ALREADY_REGISTERED");
+    });
+
     it("deve rejeitar CPF inválido para prestador", async () => {
       const response = await request(app)
         .post("/api/usuarios")
@@ -477,6 +521,7 @@ describe("Gerenciamento de usuários", () => {
         .send({
         nome: "Morador Apartamento Inexistente",
         email: "apartamento.inexistente@condofix.test",
+        cpf: "34534534507",
         senha: SENHA,
         papel: "USUARIO",
         apartamentoId: 999999,
@@ -495,7 +540,7 @@ describe("Gerenciamento de usuários", () => {
         email: "empresa.inexistente@condofix.test",
         senha: SENHA,
         papel: "PRESTADOR_SERVICO",
-        cpf: "12345678909",
+        cpf: "45645645600",
         empresaId: 999999,
         });
 

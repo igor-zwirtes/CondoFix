@@ -95,6 +95,7 @@ export default function Usuarios() {
     const dados = {
       nome: novoUsuario.nome.trim(),
       email: novoUsuario.email.trim(),
+      cpf: novoUsuario.cpf.replace(/\D/g, ''),
       telefone: novoUsuario.telefone.trim() || undefined,
       senha: novoUsuario.senha,
       papel: novoUsuario.papel
@@ -105,8 +106,6 @@ export default function Usuarios() {
     }
 
     if (novoUsuario.papel === 'PRESTADOR_SERVICO') {
-      dados.cpf = novoUsuario.cpf.replace(/\D/g, '');
-
       if (novoUsuario.empresaId) {
         dados.empresaId = Number(novoUsuario.empresaId);
       }
@@ -281,6 +280,18 @@ export default function Usuarios() {
                   </div>
 
                   <div className="usuarios-field">
+                    <label>CPF</label>
+                    <input
+                      type="text"
+                      value={novoUsuario.cpf}
+                      onChange={(e) => handleChange('cpf', e.target.value)}
+                      maxLength={11}
+                      placeholder="Somente números"
+                      required
+                    />
+                  </div>
+
+                  <div className="usuarios-field">
                     <label>Telefone</label>
                     <input
                       type="text"
@@ -347,37 +358,23 @@ export default function Usuarios() {
                   )}
 
                   {novoUsuario.papel === 'PRESTADOR_SERVICO' && (
-                    <>
-                      <div className="usuarios-field">
-                        <label>CPF</label>
-                        <input
-                          type="text"
-                          value={novoUsuario.cpf}
-                          onChange={(e) => handleChange('cpf', e.target.value)}
-                          maxLength={14}
-                          placeholder="Somente números"
-                          required
-                        />
-                      </div>
+                    <div className="usuarios-field">
+                      <label>Empresa (opcional)</label>
+                      <select
+                        value={novoUsuario.empresaId}
+                        onChange={(e) =>
+                          handleChange('empresaId', e.target.value)
+                        }
+                      >
+                        <option value="">Sem empresa</option>
 
-                      <div className="usuarios-field">
-                        <label>Empresa (opcional)</label>
-                        <select
-                          value={novoUsuario.empresaId}
-                          onChange={(e) =>
-                            handleChange('empresaId', e.target.value)
-                          }
-                        >
-                          <option value="">Sem empresa</option>
-
-                          {empresas.map((empresa) => (
-                            <option key={empresa.id} value={empresa.id}>
-                              {empresa.nome}
-                            </option>
-                          ))}
-                        </select>
-                      </div>
-                    </>
+                        {empresas.map((empresa) => (
+                          <option key={empresa.id} value={empresa.id}>
+                            {empresa.nome}
+                          </option>
+                        ))}
+                      </select>
+                    </div>
                   )}
                 </div>
 

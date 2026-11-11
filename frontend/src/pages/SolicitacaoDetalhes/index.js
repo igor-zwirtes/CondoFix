@@ -66,11 +66,17 @@ export default function SolicitacaoDetalhes() {
   const [salvandoPrestador, setSalvandoPrestador] = useState(false);
   const [erroPrestador, setErroPrestador] = useState('');
   const [sucessoPrestador, setSucessoPrestador] = useState('');
+  const [faturamento, setFaturamento] = useState(null);
+  const [salvandoFinalizacao, setSalvandoFinalizacao] = useState(false);
+  const [erroFinalizacao, setErroFinalizacao] = useState('');
+  const [sucessoFinalizacao, setSucessoFinalizacao] = useState('');
 
   const solicitacaoEncerrada = [
     'Concluida',
-    'Cancelada',
-    'Finalizada'
+    'Aceita',
+    'Faturada',
+    'Finalizada',
+    'Cancelada'
   ].includes(solicitacao?.status);
 
   const prestadorAtualId =
@@ -118,6 +124,24 @@ export default function SolicitacaoDetalhes() {
 
     carregarHistorico();
   }, [id]);
+
+  // Carregar faturamento quando a solicitação já foi faturada.
+  useEffect(() => {
+    async function carregarFaturamento() {
+      try {
+        const resposta = await api.get(
+          `/api/solicitacoes/${id}/faturamento`
+        );
+        setFaturamento(resposta.data.data);
+      } catch (error) {
+        setFaturamento(null);
+      }
+    }
+
+    if (['Faturada', 'Finalizada'].includes(solicitacao?.status)) {
+      carregarFaturamento();
+    }
+  }, [id, solicitacao?.status]);
 
   async function atualizarDados() {
     const resposta = await api.get(`/api/solicitacoes/${id}`);
@@ -251,6 +275,34 @@ export default function SolicitacaoDetalhes() {
       );
     } finally {
       setSalvandoCancelamento(false);
+    }
+  }
+
+  async function finalizarSolicitacao() {
+    setErroFinalizacao('');
+    setSucessoFinalizacao('');
+
+    if (
+      !ehAdministrador ||
+      !['Aceita', 'Faturada'].includes(solicitacao.status)
+    ) {
+      return;
+    }
+
+    try {
+      setSalvandoFinalizacao(true);
+
+      await api.patch(`/api/solicitacoes/${id}/finalizar`);
+      await atualizarDados();
+
+      setSucessoFinalizacao('Solicitação finalizada com sucesso!');
+    } catch (error) {
+      setErroFinalizacao(
+        error.response?.data?.error?.message ||
+        'Não foi possível finalizar a solicitação.'
+      );
+    } finally {
+      setSalvandoFinalizacao(false);
     }
   }
 
@@ -884,6 +936,64 @@ export default function SolicitacaoDetalhes() {
               {sucessoPrestador && (
                 <p className="message-success">{sucessoPrestador}</p>
               )}
+            </section>
+          )}
+
+          {/* Finalização (admin) */}
+          {ehAdministrador &&
+            ['Aceita', 'Faturada'].includes(solicitacao.status) && (
+            <section className="detalhes-panel action-panel">
+              <h3>Finalizar solicitação</h3>
+              <p>
+                {solicitacao.status === 'Faturada'
+                  ? 'O serviço foi faturado pelo prestador. Você pode finalizar a solicitação para encerrar o processo.'
+                  : 'O serviço foi aceito pelo morador. Você pode finalizar a solicitação para encerrar o processo.'}
+              </p>
+
+              {faturamento && (
+                <div className="evaluation-display">
+                  <h4>Faturamento</h4>
+                  <p>
+                    <strong>
+                      {Number(faturamento.valor).toLocaleString('pt-BR', {
+                        style: 'currency',
+                        currency: 'BRL'
+                      })}
+                    </strong>
+                    {' · '}
+                    {faturamento.prestador}
+                  </p>
+                  <p>{faturamento.descricao}</p>
+                </div>
+              )}
+
+              <button
+                className="primary-button"
+                onClick={finalizarSolicitacao}
+                disabled={
+                  salvandoFinalizacao ||
+                  (solicitacao.status === 'Faturada' && !faturamento)
+                }
+              >
+                {salvandoFinalizacao
+                  ? 'Finalizando...'
+                  : 'Finalizar solicitação'}
+              </button>
+
+              {erroFinalizacao && (
+                <p className="message-error">{erroFinalizacao}</p>
+              )}
+              {sucessoFinalizacao && (
+                <p className="message-success">{sucessoFinalizacao}</p>
+              )}
+            </section>
+          )}
+
+          {/* Mensagem de sucesso da finalização */}
+          {sucessoFinalizacao && solicitacao.status === 'Finalizada' && (
+            <section className="detalhes-panel action-panel">
+              <h3>Finalizar solicitação</h3>
+              <p className="message-success">{sucessoFinalizacao}</p>
             </section>
           )}
 
