@@ -102,6 +102,17 @@ cd frontend
 npm run build
 ```
 
+## Contas de demonstração
+
+Na primeira inicialização, o banco é criado com contas de exemplo para cada perfil de acesso. Entre com o e-mail e a senha abaixo para acessar o sistema e testar as funcionalidades.
+
+| Perfil | Nome | E-mail | Senha |
+|---|---|---|---|
+| ADMIN (administrador do sistema) | Administrador do Sistema | `admin@condofix.local` | `admin123` |
+| ADMINISTRADOR (síndico) | Sindico do Condominio | `sindico@condofix.local` | `sindico123` |
+| USUARIO (morador) | Joao da Silva | `morador@condofix.local` | `morador123` |
+| PRESTADOR_SERVICO (prestador de serviço) | Carlos Souza | `prestador@condofix.local` | `prestador123` |
+
 ## Estrutura do repositório
 
 ```text
